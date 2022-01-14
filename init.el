@@ -1,13 +1,15 @@
+;;; I use "use-package" for package management
 (unless (package-installed-p 'use-package)
   (package-install 'use-package))
 (require 'use-package)
 (require 'package)
-(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/")
-             )
+(setq package-archives
+      '(("gnu" . "http://elpa.gnu.org/packages/")
+	("marmalade" . "http://marmalade-repo.org/packages/")
+	("melpa" . "http://melpa.org/packages/")))
 (package-initialize)
 (unless package-archive-contents
   (package-refresh-contents))
-
 
 ;;; Timeclock
 (use-package dash) ; wird von kaan-timeclock.el gebraucht
@@ -32,7 +34,7 @@
 
 ;; Um an Timeclock einen Kommentar zu hängen
 (load-file "~/.elisp-files/mikes-timeclock.el")
-(global-set-key (kbd "C-x t d") 'timeclock-provide-description)
+(bind-key "C-x t d" #'timeclock-provide-description)
 
 ;;; Open Init File
 (bind-key "C-x i" (lambda () (interactive) (find-file "~/.emacs.d/init.el")))
@@ -46,6 +48,10 @@
   (setq magit-diff-refine-hunk t)
 
   :bind ("C-x g" . magit))
+
+(use-package git-timemachine
+  :ensure t
+  :defer t)
 
 ;; noch konfigurieren / testen
 (use-package helpful
@@ -135,15 +141,21 @@
   (require 'mu4e)
   (mu4e t)
 
-  :bind (;; (" M-m" . mu4e)
+  :bind (("C-x m m" . mu4e)
          ;; Global Key Binding für Update mails
-         ("C-c C-u" . mu4e-update-mail-and-index)))
+         ("C-x m u" . mu4e-update-mail-and-index)))
 
 ;;; Ivy
 (use-package ivy
   :ensure t
   :defer t
   :init (ivy-mode))
+
+;;; Counsel
+(use-package counsel
+  :ensure t
+  :defer t
+  :bind ("C-x C-r" . counsel-buffer-or-recentf))
 
 (use-package which-key
   :ensure t
@@ -236,7 +248,8 @@
   :config
   (setq org-indent-mode t
         org-edit-src-content-indentation 0
-        ;; org-capture funktioniert nicht weil Variable nicht bekannt, deshalb setzen
+        ;; org-capture funktioniert nicht weil Variable nicht bekannt,
+        ;; deshalb setzen
         org-indent-indentation-per-level 2
         org-enable-reveal-js-support t
         org-hide-emphasis-markers nil
@@ -252,6 +265,23 @@
   ;;; ORG EASY STRUCTURE TEMPLATE
   ;; To use org easy structure templates (also `<s' für Code-Beispiel)
   (require 'org-tempo)
+  ;; org-present
+  (use-package org-present
+  :hook ((org-present-mode . (lambda ()
+                               (org-present-big)
+                               (org-display-inline-images)
+                               (org-present-hide-cursor)
+                               (org-present-read-only)))
+         (org-present-mode-quit . (lambda ()
+                                    (org-present-small)
+                                    (org-remove-inline-images)
+                                    (org-present-show-cursor)
+                                    (org-present-read-write)))
+
+         ;; org-mode disable indentation after return
+         ;; (add-hook 'org-mode-hook (lambda () (electric-indent-mode -1)))
+
+         ))
 
   :bind (("C-c a" . org-agenda)
          ("C-c c" . org-capture)))
@@ -313,14 +343,9 @@
   :defer t
   :interpreter
   ("scala" . scala-mode)
-  :hook ((before-save . lsp-format-buffer)
-         ;; needed?
-         (scala-mode . (lambda ()
-                         (add-hook 'before-save-hook #'lsp-format-buffer))))
-  ;; needed?
-  ;; (add-hook 'scala-mode-hook
-  ;;           (lambda ()
-  ;;             (add-hook 'before-save-hook #'lsp-format-buffer)))
+  ;; :hook
+  ;; (scala-mode . (lambda ()
+  ;;                       (add-hook 'before-save-hook #'lsp-format-buffer)))
 )
 
 (use-package sbt-mode
@@ -494,15 +519,13 @@
 
 ;;;; ---- Hooks ----
 
-;;; org-mode disable indentation after return
-;; (add-hook 'org-mode-hook (lambda () (electric-indent-mode -1)))
-
-;; Paredit
+;;; Paredit
 (add-hook 'emacs-lisp-mode-hook 'paredit-mode)
 (add-hook 'clojure-mode-hook 'paredit-mode)
 (add-hook 'clojurescript-mode-hook 'paredit-mode)
 
-
+;;; before save delete trailing white space
+;; (add-hook 'before-save-hook #'delete-trailing-whitespace)
 
 ;;;; ---- Other stuff ----
 
@@ -513,12 +536,13 @@
 (setq inhibit-startup-screen nil)
 (column-number-mode)
 
+;; Scrolling
+(setq scroll-step            1
+      scroll-conservatively  10000)
+
 ;; Load theme
 (load-theme 'leuven)
-
-;; Show stray whitespace.
-(setq-default show-trailing-whitespace t)
-(setq-default indicate-empty-lines t)
+(set-face-attribute 'default nil :height 120)
 
 ;; Use spaces, not tabs, for indentation.
 (setq-default indent-tabs-mode nil)
@@ -588,10 +612,8 @@
 (set-face-attribute 'region nil :background "#FD971F" :inherit 'highlight)
 (set-face-attribute 'ivy-current-match nil :background "#FD971F" :inherit 'highlight)
 
-;;; Recent files
-(recentf-mode 1)
-(setq recentf-max-menu-items 25)
-(bind-key "C-x C-r" #'recentf-open-files)
+;;; line numbers
+(global-display-line-numbers-mode)
 
 ;;; Start server.
 (require 'server)
@@ -669,3 +691,5 @@
 ;; TODO: MULTI CURSORS
 
 ;; TODO: Schriftart: Hack statt Deja Vu
+
+;; TODO: Selectrum? https://github.com/raxod502/selectrum
