@@ -62,8 +62,10 @@
 (use-package mu4e
   ;; Muss manuell installieren, klappt nicht via use-package
   :ensure nil
-  :config
+  :init
   ;; (use-package mu4e-alert)
+  ;; Delete key binding "C-x m" for more usage below
+  (unbind-key "C-x m")
   (setq mu4e-sent-folder "/activemail/Sent"
       ;; mu4e-sent-messages-behavior 'delete ;; Unsure how this should be configured
       mu4e-trash-folder "/activemail/Trash"
