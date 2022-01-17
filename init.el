@@ -710,7 +710,7 @@
           (lambda ()
             (progn
               (load-file "~/.elisp-files/insert-define-record-type.el")
-              (bind-key (kbd "C-x C-r") 'insert-define-record-type))))
+              (bind-key (kbd "C-c C-r C-r") 'insert-define-record-type))))
 
 ;;; clj-refactor don't warn when using `cljr-find-usages`
 (setq cljr-warn-on-eval nil)
