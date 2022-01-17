@@ -157,7 +157,12 @@
 (use-package counsel
   :ensure t
   :defer t
-  :bind ("C-x C-r" . counsel-buffer-or-recentf))
+  :bind ("C-x C-r" . counsel-buffer-or-recentf)
+  :init
+  ;; I want to have recentf enabled and more saved items
+  (recentf-mode 1)
+  (setq recentf-max-menu-items 200)
+  (setq recentf-max-saved-items 200))
 
 (use-package which-key
   :ensure t
