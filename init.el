@@ -361,8 +361,8 @@
   :init
   (add-to-list 'company-backends 'company-capf)
   (add-to-list 'exec-path elixir-path)
-  :config
-  (setq lsp-ui-doc-enable nil)
+  ;; :config
+  ;; (setq lsp-ui-doc-enable nil)
   :bind (("C-c d d" . lsp-ui-doc-show)
          ("C-c d h" . lsp-ui-doc-hide))
   :commands lsp)
