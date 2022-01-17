@@ -302,10 +302,55 @@
   (setq company-idle-delay 0.5)
   :bind ("C-<return>" . company-complete))
 
+;;; Projectile
+(use-package projectile
+  :ensure t
+  :init
+  (projectile-mode +1)
+  :bind (:map projectile-mode-map
+              ("C-c p" . projectile-command-map)))
+
 ;;;; ---- Programming Languages ----
 
-;;; LSP
+;;; Clojure
+(use-package clojure-mode
+  :ensure t
+  :defer t
+  :mode (("\\.clj\\'" . clojure-mode)
+         ("\\.edn\\'" . clojure-mode))
+  ;; :init
+  ;; (add-hook 'clojure-mode-hook #'yas-minor-mode)         
+  ;; (add-hook 'clojure-mode-hook #'linum-mode)             
+  ;; (add-hook 'clojure-mode-hook #'subword-mode)           
+  ;; (add-hook 'clojure-mode-hook #'smartparens-mode)       
+  ;; (add-hook 'clojure-mode-hook #'rainbow-delimiters-mode)
+  ;; (add-hook 'clojure-mode-hook #'eldoc-mode)             
+  ;; (add-hook 'clojure-mode-hook #'idle-highlight-mode)
+  )
 
+(use-package clj-refactor
+  :ensure t
+  :defer t
+  )
+
+;;; CIDER
+(use-package cider
+  :ensure t
+  :defer t
+  :init (add-hook 'cider-mode-hook #'clj-refactor-mode)
+  :diminish subword-mode
+  :config
+  (setq nrepl-log-messages t                  
+        cider-repl-display-in-current-window t
+        cider-repl-use-clojure-font-lock t    
+        cider-prompt-save-file-on-load 'always-save
+        cider-font-lock-dynamically '(macro core function var)
+        nrepl-hide-special-buffers t            
+        cider-overlays-use-font-lock t)         
+  (cider-repl-toggle-pretty-printing))
+
+
+;;; LSP
 (setq elixir-path "~/.elixir-lsp/release")
 
 (use-package lsp-mode
@@ -688,11 +733,6 @@
 ;; documentation popup timeout / delay
 (setq lsp-ui-doc-delay 2)
 
-(use-package project
-  :ensure t
-  :config
-  (fset 'project-prefix-map project-prefix-map)
-  :bind ("C-c p" . project-prefix-map))
 
 
 ;; TODO: MULTI CURSORS
@@ -700,3 +740,17 @@
 ;; TODO: Schriftart: Hack statt Deja Vu
 
 ;; TODO: Selectrum? https://github.com/raxod502/selectrum
+
+
+;;;; Aussortiert
+
+;;; project.el
+;; eingebaut. Hatte nicht alles, was ich wollte, was projectile hat. Z. B.:
+;; - toggle namespace / tests
+;; - search in project files for a string
+;; 
+;; (use-package project
+;;   :ensure t
+;;   :config
+;;   (fset 'project-prefix-map project-prefix-map)
+;;   :bind ("C-c p" . project-prefix-map))
