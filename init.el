@@ -60,10 +60,10 @@
 ;;; Mail MU4E --------------
 (require 'mu4e)
 (use-package mu4e
-  ;; Muss manuell installieren, klappt nicht via use-package
+  ;; Muss manuell installieren, klappt nicht via use-package, ebenso: mu4e-alert
+  ;; Abhilfe: https://github.com/raxod502/straight.el/issues/491
   :ensure nil
   :init
-  ;; (use-package mu4e-alert)
   ;; Delete key binding "C-x m" for more usage below
   (unbind-key "C-x m")
   (setq mu4e-sent-folder "/activemail/Sent"
@@ -101,20 +101,16 @@
         ("maildir:/activemail/Sent" "Sent" ?s))
 
       ;; Bei Reply oder Zitat die Zeile anpassen, dass auch Datum/Uhrzeit angezeigt wird
-      ;; (setq message-citation-line-function #'message-insert-formatted-citation-line
-      ;;       message-citation-line-format "On %Y-%m-%d at %R %Z, %f wrote:\n")
-
+      message-citation-line-function #'message-insert-formatted-citation-line
+      message-citation-line-format "On %Y-%m-%d at %R %Z, %f wrote:\n"
       ;; Setze User-Mail-Adresse, um beim Antworten auf Mails die eigene Adresse
       ;; nicht im CC zu haben
       mu4e-user-mail-address-list '("kaan.sahin@active-group.de")
 
       ;; Notifications
-      ;; (mu4e-alert-set-default-style 'notifications)
-      ;; (mu4e-alert-enable-notifications)
-      ;; (mu4e-alert-enable-mode-line-display)
-
-
-
+      (mu4e-alert-set-default-style 'notifications)
+      (mu4e-alert-enable-notifications)
+      (mu4e-alert-enable-mode-line-display)
 
       ;;; Format flowed für E-Mails
       ;; format=flowed gesendete Nachrichten brechen optional nach X Zeichen um
