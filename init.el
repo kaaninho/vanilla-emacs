@@ -171,11 +171,20 @@
   )
 
 ;;; Swiper
-
 (use-package swiper
   :ensure t
   :defer t
   :bind ("C-s" . swiper))
+
+;;; Marginalia
+;; Shows hints in mini buffer
+(use-package marginalia
+  :ensure t
+  ;; Either bind `marginalia-cycle` globally or only in the minibuffer
+  :bind (:map minibuffer-local-map
+         ("M-A" . marginalia-cycle))
+  :init
+  (marginalia-mode))
 
 ;;; TODO
 ;; (use-package org-notify
