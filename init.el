@@ -124,9 +124,7 @@
       fill-flowed-encode-column 72
 
       ;; Falls eml Dateien drin sind die nicht gut lesbar sind (nicht öffnen kann)
-      ;; (macht aber irgendwie das Herunterladen von Anhängen kaputt, deshalb
-      ;; erstmal standardmäßig deaktiviert)
-      ;; (setq mu4e-view-use-gnus t)
+      mu4e-view-use-gnus t
       )
   ;; Mit `q` kann man mu4e ganz verlassen (erhält dann aber auch keine Mails mehr).
   ;; Deshalb überschreiben wir es mit `previous-buffer`.
@@ -135,9 +133,11 @@
 
   ;; start mu4e
   (add-to-list 'load-path "/home/kaan/.nix-profile/share/emacs/site-lisp/mu/mu4e/")
-
   (require 'mu4e)
   (mu4e t)
+  ;; Damit kann man Kalendereinladungen per Mail mu4e annehmen
+  (require 'mu4e-icalendar)
+  (mu4e-icalendar-setup)
 
   :bind (("C-x m m" . mu4e)
          ;; Global Key Binding für Update mails
