@@ -186,10 +186,6 @@
   :init
   (marginalia-mode))
 
-;;; TODO
-;; (use-package org-notify
-;;   :ensure t)
-
 (use-package org
   :defer t
   :init
@@ -218,6 +214,9 @@
   (advice-add 'org-agenda-todo :after 'org-save-all-org-buffers)
   (advice-add 'org-agenda-schedule :after (lambda (&rest args) (org-save-all-org-buffers)))
 
+
+  ;; geht irgendwie nicht zu installieren?
+  ;; vielleicht org-notifications benutzen?
   ;; org-notify um an Termine zu erinnern
   ;; (require 'org-notify)
   ;; (org-notify-add 'daily
