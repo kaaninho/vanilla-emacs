@@ -257,6 +257,8 @@
        (latex . t)
        (plantuml . t))))
 
+  ;; ---- Ende :init ----
+
   :config
   (setq org-indent-mode t
         org-edit-src-content-indentation 0
@@ -363,7 +365,7 @@
         cider-prompt-save-file-on-load 'always-save
         cider-font-lock-dynamically '(macro core function var)
         nrepl-hide-special-buffers t            
-        cider-overlays-use-font-lock t)         
+        cider-overlays-use-font-lock t)
   (cider-repl-toggle-pretty-printing))
 
 
@@ -725,45 +727,15 @@
 ;; `cd ~/.emacs.d && find . -name *.elc -print0 | xargs -0 rm`
 ;; Danach `M-x spacemacs/recompile-elpa`
 
+;;; Alte Netzlive Elixir Einstellungen
+;; (with-eval-after-load 'lsp-mode
+;;   (setq lsp-restart 'auto-restart)
+;;   (setq lsp-file-watch-threshold 25000)
+;;   (push "[/\\]docker/temp$" lsp-file-watch-ignored)
+;;   (push "temp$" lsp-file-watch-ignored))
+
 
 ;;;; TODO
-
-;;; Automatic highlight symbol
-;; (spacemacs/toggle-automatic-symbol-highlight)
-
-
-(add-hook 'clojure-mode-hook (lambda () (bind-key (kbd "M-t") 'transpose-sexps 'clojure-mode-map 'clojure-mode?)))
-
-;;; Clojure add define-record-type Tipperleichterung
-;;; Record-Tipperleichterung
-(add-hook 'clojure-mode-hook
-          (lambda ()
-            (progn
-              (load-file "~/.elisp-files/insert-define-record-type.el")
-              (bind-key (kbd "C-c C-r C-r") 'insert-define-record-type))))
-
-;;; clj-refactor don't warn when using `cljr-find-usages`
-(setq cljr-warn-on-eval nil)
-
-
-;;; Elixir settings
-
-;; Wenn lsp mal nicht geht (und auch z. B. linter), dann das hier ausführen:
-;; rm -r deps _build .elixir_ls && mix deps.get
-;; ggf. auch mix deps.compile
-
-;; das hier setzen, damit emacs die deps nicht automatisch fetcht (gab bei mir
-;; probleme bzgl mix.lock)
-;; lsp-elixir-fetch-deps nil
-
-(add-hook 'elixir-mode-hook
-    (lambda ()
-      (add-hook 'before-save-hook #'elixir-format t t)))
-
-;; documentation popup timeout / delay
-(setq lsp-ui-doc-delay 2)
-
-
 
 ;; TODO: MULTI CURSORS
 
