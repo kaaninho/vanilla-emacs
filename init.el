@@ -691,6 +691,9 @@
 ;;; line numbers
 (global-display-line-numbers-mode)
 
+;;; Highlight current line
+(global-hl-line-mode)
+
 ;;; Start server.
 (require 'server)
 (unless (server-running-p)
