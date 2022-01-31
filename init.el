@@ -694,6 +694,9 @@
 ;;; Highlight current line
 (global-hl-line-mode)
 
+;;; Sentences are ended with only one space
+(setq sentence-end-double-space nil)
+
 ;;; Start server.
 (require 'server)
 (unless (server-running-p)
