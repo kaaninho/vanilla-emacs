@@ -335,20 +335,20 @@
   :defer t
   :mode (("\\.clj\\'" . clojure-mode)
          ("\\.edn\\'" . clojure-mode))
-  ;; :init
-  ;; (add-hook 'clojure-mode-hook #'yas-minor-mode)         
-  ;; (add-hook 'clojure-mode-hook #'linum-mode)             
-  ;; (add-hook 'clojure-mode-hook #'subword-mode)           
-  ;; (add-hook 'clojure-mode-hook #'smartparens-mode)       
-  ;; (add-hook 'clojure-mode-hook #'rainbow-delimiters-mode)
-  ;; (add-hook 'clojure-mode-hook #'eldoc-mode)             
-  ;; (add-hook 'clojure-mode-hook #'idle-highlight-mode)
-  )
 
-(use-package clj-refactor
-  :ensure t
-  :defer t
-  )
+  :config
+  ;; clj-refactor don't warn when using `cljr-find-usages`
+  (setq cljr-warn-on-eval nil)
+  (use-package clj-refactor
+    :ensure t
+    :defer t)
+
+  :hook ((clojure-mode . (lambda () (bind-key (kbd "M-t") 'transpose-sexps 'clojure-mode-map 'clojure-mode?)))
+         ;; Clojure add define-record-type Tipperleichterung
+         ;; Record-Tipperleichterung
+         (clojure-mode . (lambda ()
+                           (load-file "~/.elisp-files/insert-define-record-type.el")
+                           (bind-key (kbd "C-c C-r C-r") 'insert-define-record-type)))))
 
 ;;; CIDER
 (use-package cider
