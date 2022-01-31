@@ -496,18 +496,25 @@
   ;;                                           "tb" 'exunit-verify
   ;;                                           "tr" 'exunit-rerun
   ;;                                           "tt" 'exunit-verify-single)
+  ;; Needed?
+  ;; Elixir settings
+  ;; Wenn lsp mal nicht geht (und auch z. B. linter), dann das hier ausführen:
+  ;; rm -r deps _build .elixir_ls && mix deps.get
+  ;; ggf. auch mix deps.compile
 
-  (setq lsp-restart 'auto-restart)
-  (setq lsp-file-watch-threshold 25000)
-  (push "[/\\]docker/temp$" lsp-file-watch-ignored)
-  (push "temp$" lsp-file-watch-ignored))
+  ;; das hier setzen, damit emacs die deps nicht automatisch fetcht (gab bei mir
+  ;; probleme bzgl mix.lock)
+  ;; lsp-elixir-fetch-deps nil
 
-;; TODO
-;; (with-eval-after-load 'lsp-mode
-;;   (setq lsp-restart 'auto-restart)
-;;   (setq lsp-file-watch-threshold 25000)
-;;   (push "[/\\]docker/temp$" lsp-file-watch-ignored)
-;;   (push "temp$" lsp-file-watch-ignored))
+  ;; (add-hook 'elixir-mode-hook
+  ;;     (lambda ()
+  ;;       (add-hook 'before-save-hook #'elixir-format t t)))
+
+  ;; documentation popup timeout / delay
+  (setq lsp-ui-doc-delay 2)
+
+)
+
 
 ;;;; ---- Global Key Bindings ----
 
