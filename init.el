@@ -295,8 +295,20 @@
 
          ))
 
+  ;; ---- Ende :config ----
+
   :bind (("C-c a" . org-agenda)
          ("C-c c" . org-capture)))
+
+
+;;; Idle Highlight Mode
+(use-package auto-highlight-symbol
+  :ensure t
+  :demand t
+  :init
+  (global-auto-highlight-symbol-mode t)
+  :config
+  (ahs-set-idle-interval 2))
 
 ;;; Auto-Completion
 (use-package company
