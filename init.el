@@ -201,7 +201,9 @@
   ;; org-agenda, org-refile
   (setq org-agenda-files '("~/org")
         org-default-notes-file "todos.org"
-        org-refile-targets '((org-agenda-files :maxlevel . 1)))
+        org-refile-targets '((org-agenda-files :maxlevel . 1))
+        org-agenda-window-setup 'current-window
+        org-agenda-restore-windows-after-quit t)
 
   ;; Dadurch werden nach einem
   ;; - refile von capture
@@ -301,7 +303,6 @@
   :bind (("C-c a" . org-agenda)
          ("C-c c" . org-capture)))
 
-
 ;;; Idle Highlight Mode
 (use-package auto-highlight-symbol
   :ensure t
@@ -358,12 +359,12 @@
   :init (add-hook 'cider-mode-hook #'clj-refactor-mode)
   :diminish subword-mode
   :config
-  (setq nrepl-log-messages t                  
+  (setq nrepl-log-messages t
         cider-repl-display-in-current-window t
-        cider-repl-use-clojure-font-lock t    
+        cider-repl-use-clojure-font-lock t
         cider-prompt-save-file-on-load 'always-save
         cider-font-lock-dynamically '(macro core function var)
-        nrepl-hide-special-buffers t            
+        nrepl-hide-special-buffers t
         cider-overlays-use-font-lock t)
   (cider-repl-toggle-pretty-printing))
 
@@ -414,6 +415,8 @@
   :interpreter
   ("scala" . scala-mode)
   ;; :hook
+  ;; (scala-mode . (lambda ()
+  ;;                 (add-hook 'before-save-hook #'delete-trailing-whitespace)))
   ;; (scala-mode . (lambda ()
   ;;                       (add-hook 'before-save-hook #'lsp-format-buffer)))
 )
@@ -515,7 +518,6 @@
   (setq lsp-ui-doc-delay 2)
 
 )
-
 
 ;;;; ---- Global Key Bindings ----
 
@@ -749,7 +751,7 @@
 ;; eingebaut. Hatte nicht alles, was ich wollte, was projectile hat. Z. B.:
 ;; - toggle namespace / tests
 ;; - search in project files for a string
-;; 
+;;
 ;; (use-package project
 ;;   :ensure t
 ;;   :config
