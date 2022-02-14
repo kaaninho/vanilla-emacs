@@ -57,6 +57,10 @@
 (use-package helpful
   :ensure t)
 
+(use-package csv-mode
+  :ensure t
+  :defer t)
+
 ;;; Mail MU4E --------------
 (require 'mu4e)
 (use-package mu4e
