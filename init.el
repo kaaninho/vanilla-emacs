@@ -152,7 +152,8 @@
 (use-package ivy
   :ensure t
   :defer t
-  :init (ivy-mode))
+  :init
+  (ivy-mode))
 
 ;;; Counsel
 (use-package counsel
@@ -162,8 +163,16 @@
   :init
   ;; I want to have recentf enabled and more saved items
   (recentf-mode 1)
+  (counsel-mode)
   (setq recentf-max-menu-items 200)
   (setq recentf-max-saved-items 200))
+
+;;; Smex fork
+;; Persists and shows M-x history
+(use-package amx
+  :ensure t
+  :init
+  (amx-mode))
 
 (use-package which-key
   :ensure t
@@ -408,6 +417,11 @@
 (use-package lsp-ivy
   :ensure t
   :defer t
+  :init
+  (setq ivy-use-virtual-buffers t)
+  (setq ivy-count-format "(%d/%d) ")
+  (setq ivy-re-builders-alist
+        '((t . ivy--regex-plus)))
   :commands lsp-ivy-workspace-symbol)
 
 (use-package lsp-treemacs
