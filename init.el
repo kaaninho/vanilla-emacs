@@ -111,11 +111,6 @@
       ;; nicht im CC zu haben
       mu4e-user-mail-address-list '("kaan.sahin@active-group.de")
 
-      ;; Notifications
-      (mu4e-alert-set-default-style 'notifications)
-      (mu4e-alert-enable-notifications)
-      (mu4e-alert-enable-mode-line-display)
-
       ;;; Format flowed für E-Mails
       ;; format=flowed gesendete Nachrichten brechen optional nach X Zeichen um
       ;; Das ist insbesondere für mobile Geräte, wo die standardmäßigen 72 Zeichen
@@ -139,6 +134,12 @@
   (add-to-list 'load-path "/home/kaan/.nix-profile/share/emacs/site-lisp/mu/mu4e/")
   (require 'mu4e)
   (mu4e t)
+
+  ;; Notifications
+  (mu4e-alert-set-default-style 'notifications)
+  (mu4e-alert-enable-notifications)
+  (mu4e-alert-enable-mode-line-display)
+
   ;; Damit kann man Kalendereinladungen per Mail mu4e annehmen
   (require 'mu4e-icalendar)
   (mu4e-icalendar-setup)
