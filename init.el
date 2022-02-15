@@ -330,6 +330,13 @@
   :ensure t
   :init
   (projectile-mode +1)
+
+  (setq projectile-project-search-path '(("~/projekte/" . 2) ("~/active-group/" . 3)))
+  ;; The auto-discover consumes too much time. Trigger manually with
+  ;; (projectile-discover-projects-in-search-path)
+  (setq projectile-auto-discover nil)
+  (setq projectile-sort-order 'recently-active)
+
   :bind (:map projectile-mode-map
               ("C-c p" . projectile-command-map)))
 
