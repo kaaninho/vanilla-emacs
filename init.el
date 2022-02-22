@@ -152,6 +152,7 @@
 (use-package ivy
   :ensure t
   :defer t
+  :diminish ""
   :init
   (ivy-mode))
 
@@ -159,6 +160,7 @@
 (use-package counsel
   :ensure t
   :defer t
+  :diminish ""
   :bind ("C-x C-r" . counsel-buffer-or-recentf)
   :init
   ;; I want to have recentf enabled and more saved items
@@ -177,6 +179,7 @@
 (use-package which-key
   :ensure t
   :defer t
+  :diminish ""
   :init (which-key-mode)
 
   ;; falls which-key mal langsam sein sollte, einfach
@@ -321,6 +324,7 @@
 (use-package auto-highlight-symbol
   :ensure t
   :demand t
+  :diminish ""
   :init
   (global-auto-highlight-symbol-mode t)
   :config
@@ -330,6 +334,7 @@
 (use-package company
   :ensure t
   :defer t
+  :diminish ""
   :init
   (global-company-mode)
   (setq company-idle-delay 0.5)
@@ -338,6 +343,7 @@
 ;;; Projectile
 (use-package projectile
   :ensure t
+  :diminish ""
   :init
   (projectile-mode +1)
 
@@ -349,6 +355,11 @@
 
   :bind (:map projectile-mode-map
               ("C-c p" . projectile-command-map)))
+
+;; Um Mode-Namen in der Mode Line zu verändern oder ganz zu entfernen
+;; benutzbar in `use-package` via `:diminish` Keyword
+(use-package diminish
+  :ensure t)
 
 ;;;; ---- Programming Languages ----
 
