@@ -136,7 +136,7 @@
   (mu4e t)
 
   ;; Notifications
-  (mu4e-alert-set-default-style 'notifications)
+  (mu4e-alert-set-default-style 'libnotify)
   (mu4e-alert-enable-notifications)
   (mu4e-alert-enable-mode-line-display)
 
