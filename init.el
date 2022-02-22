@@ -288,7 +288,7 @@
         ;; deshalb setzen
         org-indent-indentation-per-level 2
         org-enable-reveal-js-support t
-        org-hide-emphasis-markers nil
+        org-hide-emphasis-markers t
         org-bullets-mode t
         org-bullets-bullet-list '("⚫" "◉" "◎" "○" "►" "◇")
         org-emphasis-alist '(("*" bold)
