@@ -385,6 +385,16 @@
   (doom-themes-org-config))
 (package-refresh-contents)
 
+;; Hiermit werden Tastenanschläge und -Kombinationen in der Mode-Line
+;; angezeigt, gut für Screencasting
+;; Zudem wird bei Funktionen der Funktionsname nebendran angezeigt
+(use-package keycast
+    :ensure t
+    :init
+    (add-to-list 'global-mode-string '("" mode-line-keycast))
+    ;; (keycast-mode)
+    )
+
 ;;;; ---- Programming Languages ----
 
 ;;; Clojure
