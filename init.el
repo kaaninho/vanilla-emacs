@@ -771,6 +771,13 @@
 ;;; Sentences are ended with only one space
 (setq sentence-end-double-space nil)
 
+;;; Save position u were in
+(save-place-mode 1)
+
+;;; If a file changes on disk, revert buffer automatically
+(global-auto-revert-mode)
+
+
 ;;; Start server.
 (require 'server)
 (unless (server-running-p)
