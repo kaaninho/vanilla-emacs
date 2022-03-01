@@ -171,7 +171,7 @@
   (recentf-mode 1)
   (counsel-mode)
   (setq recentf-max-menu-items 200)
-  (setq recentf-max-saved-items 200))
+  (setq recentf-max-saved-items 500))
 
 ;;; Smex fork
 ;; Persists and shows M-x history
