@@ -208,6 +208,7 @@
   (marginalia-mode))
 
 (use-package org
+  :ensure t
   :defer t
   :init
   ;; This is somehow needed for storing a link from a message for capturing
@@ -282,21 +283,20 @@
   ;; ---- Ende :init ----
 
   :config
-  (setq org-indent-mode t
+  (setq org-indent-mode nil
         org-edit-src-content-indentation 0
         ;; org-capture funktioniert nicht weil Variable nicht bekannt,
         ;; deshalb setzen
         org-indent-indentation-per-level 2
         org-enable-reveal-js-support t
         org-hide-emphasis-markers t
-        org-bullets-mode t
-        org-bullets-bullet-list '("⚫" "◉" "◎" "○" "►" "◇")
         org-emphasis-alist '(("*" bold)
 		             ("/" italic)
 		             ("_" underline)
 		             ("=" (:foreground "#EFCA08" :background "#555555"))
 		             ("~" org-verbatim verbatim)
-		             ("+" (:strike-through t))))
+		             ("+" (:strike-through t)))
+)
 
   ;;; ORG EASY STRUCTURE TEMPLATE
   ;; To use org easy structure templates (also `<s' für Code-Beispiel)
@@ -318,9 +318,50 @@
          ;; (add-hook 'org-mode-hook (lambda () (electric-indent-mode -1)))
 
          ))
+  (use-package org-superstar
+    :ensure t
+    :config
+    (setq org-superstar-remove-leading-stars nil
+          org-superstar-headline-bullets-list '(" ․")
+          ;; This is for not slowing down
+          inhibit-compacting-font-caches t
+          ))
+
+  ;; Use other fonts for headings
+  (let* ((variable-tuple
+          (cond ((x-list-fonts "NotoSerif")   '(:font "NotoSerif"))
+                ((x-family-fonts "Serif")    '(:family "Serif"))
+                (nil (warn "Cannot find a Sans Serif Font.  Install Source Sans Pro."))))
+         (base-font-color     (face-foreground 'default nil 'default))
+         (headline           `(:inherit default :weight bold :foreground ,base-font-color))
+         (title-info-font '(:font "DejaVu Sans Mono")))
+
+    (custom-theme-set-faces
+     'user
+     `(org-level-8 ((t (,@headline ,@variable-tuple))))
+     `(org-level-7 ((t (,@headline ,@variable-tuple))))
+     `(org-level-6 ((t (,@headline ,@variable-tuple))))
+     `(org-level-5 ((t (,@headline ,@variable-tuple))))
+     `(org-level-4 ((t (,@headline ,@variable-tuple :height 1.1))))
+     `(org-level-3 ((t (,@headline ,@variable-tuple :height 1.15))))
+     `(org-level-2 ((t (,@headline ,@variable-tuple :height 1.3))))
+     `(org-level-1 ((t (,@headline ,@variable-tuple :height 1.5))))
+     `(org-document-title ((t (,@headline ,@title-info-font :height 1.05 :underline nil))))
+     `(org-document-info ((t (,@headline ,@title-info-font :height 1.0 :underline nil))))
+     `(org-warning ((t (:inherit default :weight bold :foreground "#FFAAAA" ,@title-info-font :height 1.05 :underline nil))))))
 
   ;; ---- Ende :config ----
 
+  :hook (;; Set margin to left side
+         (org-mode . (lambda ()
+                       (setq-local left-margin-width 5)
+                       (setq-local right-margin-width 5)
+                       (set-window-buffer nil (current-buffer))))
+         (org-mode . (lambda () (setq fill-column 80)))
+         (org-mode . (lambda () (org-superstar-mode)))
+         (org-mode . (lambda () (display-line-numbers-mode -1)))
+         )
+  
   :bind (("C-c a" . org-agenda)
          ("C-c c" . org-capture)))
 
