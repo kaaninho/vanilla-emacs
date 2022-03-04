@@ -296,7 +296,10 @@
 		             ("=" (:foreground "#EFCA08" :background "#555555"))
 		             ("~" org-verbatim verbatim)
 		             ("+" (:strike-through t)))
-)
+
+        ;; For images in org-mode
+        org-image-actual-width nil
+        )
 
   ;;; ORG EASY STRUCTURE TEMPLATE
   ;; To use org easy structure templates (also `<s' für Code-Beispiel)
@@ -318,6 +321,13 @@
          ;; (add-hook 'org-mode-hook (lambda () (electric-indent-mode -1)))
 
          ))
+
+  ;; When `org-hide-emphasis-markers' is `t' it's convenient to see
+  ;; the markers when editing the text. `org-appear' does that.
+  (use-package org-appear
+    :ensure t
+    :defer t)
+
   (use-package org-superstar
     :ensure t
     :config
@@ -346,7 +356,7 @@
      `(org-level-3 ((t (,@headline ,@variable-tuple :height 1.15))))
      `(org-level-2 ((t (,@headline ,@variable-tuple :height 1.3))))
      `(org-level-1 ((t (,@headline ,@variable-tuple :height 1.5))))
-     `(org-document-title ((t (,@headline ,@title-info-font :height 1.05 :underline nil))))
+     `(org-document-title ((t (,@headline ,@title-info-font :height 1.25 :underline nil))))
      `(org-document-info ((t (,@headline ,@title-info-font :height 1.0 :underline nil))))
      `(org-warning ((t (:inherit default :weight bold :foreground "#FFAAAA" ,@title-info-font :height 1.05 :underline nil))))))
 
@@ -360,8 +370,8 @@
          (org-mode . (lambda () (setq fill-column 80)))
          (org-mode . (lambda () (org-superstar-mode)))
          (org-mode . (lambda () (display-line-numbers-mode -1)))
-         )
-  
+         (org-mode . (lambda () (org-appear-mode))))
+
   :bind (("C-c a" . org-agenda)
          ("C-c c" . org-capture)))
 
@@ -392,7 +402,7 @@
   :init
   (projectile-mode +1)
 
-  (setq projectile-project-search-path '(("~/projekte/" . 2) ("~/active-group/" . 3)))
+  (setq projectile-project-search-path '(("~/projekte/" . 2) ("~/active-group/" . 5)))
   ;; The auto-discover consumes too much time. Trigger manually with
   ;; (projectile-discover-projects-in-search-path)
   (setq projectile-auto-discover nil)
@@ -483,7 +493,9 @@
   :ensure t
   :defer t
   :hook ((elixir-mode . lsp)
-         (lsp-mode . lsp-enable-which-key-integration))
+         (lsp-mode . lsp-enable-which-key-integration)
+         (python-mode . lsp))
+
   :init
   (add-to-list 'company-backends 'company-capf)
   (add-to-list 'exec-path elixir-path)
@@ -492,6 +504,11 @@
   :bind (("C-c d d" . lsp-ui-doc-show)
          ("C-c d h" . lsp-ui-doc-hide))
   :commands lsp)
+
+;; Needed somehow for python + lsp
+(use-package all-the-icons
+  :ensure t
+  :defer t)
 
 ;; optionally
 (use-package lsp-ui
@@ -629,7 +646,24 @@
   ;; documentation popup timeout / delay
   (setq lsp-ui-doc-delay 2)
 
-)
+  )
+
+(use-package python
+  :ensure t
+  :defer t
+  :init
+  (add-to-list 'process-coding-system-alist '("python" . (utf-8 . utf-8)))
+  (custom-set-variables
+  '(elpy-rpc-virtualenv-path (quote current))
+  ))
+
+(use-package lsp-pyright
+  :ensure t
+  :hook (python-mode . (lambda ()
+                          (require 'lsp-pyright)
+                          (lsp))))  ; or lsp-deferred
+
+
 
 ;;;; ---- Global Key Bindings ----
 
