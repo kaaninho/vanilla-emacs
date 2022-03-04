@@ -129,8 +129,8 @@
       ;; Falls eml Dateien drin sind die nicht gut lesbar sind (nicht öffnen kann)
       mu4e-view-use-gnus t
       )
-  ;; Mit `q` kann man mu4e ganz verlassen (erhält dann aber auch keine Mails mehr).
-  ;; Deshalb überschreiben wir es mit `previous-buffer`.
+  ;; Mit `q' kann man mu4e ganz verlassen (erhält dann aber auch keine Mails mehr).
+  ;; Deshalb überschreiben wir es mit `previous-buffer'.
   (eval-after-load 'mu4e
     '(bind-key "q" #'previous-buffer mu4e-main-mode-map))
 
@@ -201,7 +201,7 @@
 ;; Shows hints in mini buffer
 (use-package marginalia
   :ensure t
-  ;; Either bind `marginalia-cycle` globally or only in the minibuffer
+  ;; Either bind `marginalia-cycle' globally or only in the minibuffer
   :bind (:map minibuffer-local-map
          ("M-A" . marginalia-cycle))
   :init
@@ -412,7 +412,7 @@
               ("C-c p" . projectile-command-map)))
 
 ;; Um Mode-Namen in der Mode Line zu verändern oder ganz zu entfernen
-;; benutzbar in `use-package` via `:diminish` Keyword
+;; benutzbar in `use-package' via `:diminish' Keyword
 (use-package diminish
   :ensure t)
 
@@ -456,7 +456,7 @@
          ("\\.edn\\'" . clojure-mode))
 
   :config
-  ;; clj-refactor don't warn when using `cljr-find-usages`
+  ;; clj-refactor don't warn when using `cljr-find-usages'
   (setq cljr-warn-on-eval nil)
   (use-package clj-refactor
     :ensure t
@@ -607,7 +607,7 @@
 ;; https://github.com/elixir-lsp/elixir-ls
 ;; Muss manchmal aktualisiert werden, gehe ins Repo
 ;; > cd "~/.elixir-lsp/release/language_server.sh"
-;; und mache > `git pull`
+;; und mache > `git pull'
 
 (use-package elixir-mode
   :ensure t
