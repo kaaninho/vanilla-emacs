@@ -765,8 +765,6 @@
 (setq scroll-step            1
       scroll-conservatively  10000)
 
-;; Load theme
-(load-theme 'leuven)
 (set-face-attribute 'default nil :height 120)
 
 ;; Use spaces, not tabs, for indentation.
