@@ -172,6 +172,10 @@
   (setq recentf-max-menu-items 200)
   (setq recentf-max-saved-items 500))
 
+(use-package wgrep
+  :ensure t
+  :defer t)
+
 ;;; Smex fork
 ;; Persists and shows M-x history
 (use-package amx
@@ -299,6 +303,11 @@
         ;; For images in org-mode
         org-image-actual-width nil
         )
+
+  ;;; org-reveal
+  (use-package org-re-reveal
+    :ensure t)
+  (require 'org-re-reveal)
 
   ;;; ORG EASY STRUCTURE TEMPLATE
   ;; To use org easy structure templates (also `<s' für Code-Beispiel)
