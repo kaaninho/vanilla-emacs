@@ -64,6 +64,10 @@
   :ensure t
   :defer t)
 
+(use-package yaml-mode
+  :ensure t
+  :defer t)
+
 ;;; Mail MU4E --------------
 (require 'mu4e)
 (use-package mu4e
