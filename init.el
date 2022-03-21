@@ -10,9 +10,13 @@
 (unless package-archive-contents
   (package-refresh-contents))
 
+(setq my-elisp-files-path "~/.emacs.d/my-elisp-files")
+(defun load-my-elisp-file (filename)
+  (load-file (concat my-elisp-files-path "/" filename)))
+
 ;;; Timeclock
 (use-package dash) ; wird von kaan-timeclock.el gebraucht
-(load-file "~/.elisp-files/kaan-timeclock.el")
+(load-my-elisp-file "kaan-timeclock.el")
 
 ;; overwrite bc of other path
 (setq timeclock-file "~/.emacs.dspacemacs/timelog")
@@ -23,7 +27,7 @@
 (bind-key "C-x t c" #'timeclock-change)
 
 ;; Für mehr Timeclock-Funktionalität
-(load-file "~/.elisp-files/kaan-timeclock.el")
+(load-my-elisp-file "kaan-timeclock.el")
 (bind-key "C-x t s" #'timeclock-sum-all-hours)
 (bind-key "C-x t t" #'timeclock-hours-worked-today)
 (bind-key "C-x t e" #'timeclock-hours-to-days-end)
@@ -32,7 +36,7 @@
 (bind-key "C-x t f" #'timeclock-open-timelog-file)
 
 ;; Um an Timeclock einen Kommentar zu hängen
-(load-file "~/.elisp-files/mikes-timeclock.el")
+(load-my-elisp-file "mikes-timeclock.el")
 (bind-key "C-x t d" #'timeclock-provide-description)
 
 ;;; Open Init File
@@ -478,7 +482,7 @@
          ;; Clojure add define-record-type Tipperleichterung
          ;; Record-Tipperleichterung
          (clojure-mode . (lambda ()
-                           (load-file "~/.elisp-files/insert-define-record-type.el")
+                           (load-my-elisp-file "insert-define-record-type.el")
                            (bind-key (kbd "C-c C-r C-r") 'insert-define-record-type)))))
 
 ;;; CIDER
@@ -680,7 +684,7 @@
 ;;;; ---- Global Key Bindings ----
 
 ;;; Protokoll-Template
-(load-file "~/.elisp-files/protokoll-template.el")
+(load-my-elisp-file "protokoll-template.el")
 (bind-key "C-x p" #'protocol-template)
 
 (bind-key "C-<tab>" #'other-window)
@@ -725,7 +729,7 @@
 (bind-key "C-x t c" #'timeclock-change)
 
 ;; Für mehr Timeclock-Funktionalität
-(load-file "~/.elisp-files/kaan-timeclock.el")
+(load-my-elisp-file "kaan-timeclock.el")
 (bind-key "C-x t s" #'timeclock-sum-all-hours)
 (bind-key "C-x t t" #'timeclock-hours-worked-today)
 (bind-key "C-x t e" #'timeclock-hours-to-days-end)
@@ -734,7 +738,7 @@
 (bind-key "C-x t f" #'timeclock-open-timelog-file)
 
 ;; Um an Timeclock einen Kommentar zu hängen
-(load-file "~/.elisp-files/mikes-timeclock.el")
+(load-my-elisp-file "mikes-timeclock.el")
 (bind-key "C-x t d" #'timeclock-provide-description)
 
 ;; Ergänzung zu `other-window'
@@ -813,7 +817,7 @@
 (setq fast-but-imprecise-scrolling t)
 
 ;;; Backup Files:
-(load-file "~/.elisp-files/backup.el")
+(load-my-elisp-file "backup.el")
 
 ;;; PlantUML
 (setq plantuml-jar-path (expand-file-name "~/bin/plantuml.jar")
