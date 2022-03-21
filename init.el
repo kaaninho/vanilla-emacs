@@ -19,7 +19,7 @@
 (load-my-elisp-file "kaan-timeclock.el")
 
 ;; overwrite bc of other path
-(setq timeclock-file "~/.emacs.dspacemacs/timelog")
+(setq timeclock-file "~/.emacs.d/timelog")
 
 ;;; Timeclock Erweiterung
 (bind-key "C-x t i" #'timeclock-in)
