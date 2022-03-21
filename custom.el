@@ -11,7 +11,7 @@
    '("4a5aa2ccb3fa837f322276c060ea8a3d10181fecbd1b74cb97df8e191b214313" "246a9596178bb806c5f41e5b571546bb6e0f4bd41a9da0df5dfbca7ec6e2250c" "e19ac4ef0f028f503b1ccafa7c337021834ce0d1a2bca03fcebc1ef635776bea" default))
  '(elpy-rpc-virtualenv-path 'current)
  '(package-selected-packages
-   '(yaml-mode yaml wgrep org-re-reveal org-appear lsp-pyright all-the-icons elpy keycast org-superstar doom-themes org-bullets diminish amx smex csv-mode csv mu4e-alert auto-highlight-symbol idle-highlight-mode marginalia projectile clj-refactor cider clojure-mode git-timemachine org-present project counsel swiper lsp-ivy lsp-ui-mode lsp-ui elixir-mode elixir lsp scala lsp-metals sbt-mode org-notify company which-key mu4e rainbow-delimiters paredit markdown-mode)))
+   '(nix-mode yaml-mode yaml wgrep org-re-reveal org-appear lsp-pyright all-the-icons elpy keycast org-superstar doom-themes org-bullets diminish amx smex csv-mode csv mu4e-alert auto-highlight-symbol idle-highlight-mode marginalia projectile clj-refactor cider clojure-mode git-timemachine org-present project counsel swiper lsp-ivy lsp-ui-mode lsp-ui elixir-mode elixir lsp scala lsp-metals sbt-mode org-notify company which-key mu4e rainbow-delimiters paredit markdown-mode)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.

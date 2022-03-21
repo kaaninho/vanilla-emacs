@@ -72,6 +72,11 @@
   :ensure t
   :defer t)
 
+(use-package nix-mode
+  :ensure t
+  :defer t
+  :mode "\\.nix\\'")
+
 ;;; Mail MU4E --------------
 (require 'mu4e)
 (use-package mu4e
