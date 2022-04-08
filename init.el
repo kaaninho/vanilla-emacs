@@ -529,22 +529,33 @@
   :init
   (add-to-list 'company-backends 'company-capf)
   (add-to-list 'exec-path elixir-path)
-  ;; :config
-  ;; (setq lsp-ui-doc-enable nil)
-  :bind (("C-c d d" . lsp-ui-doc-show)
-         ("C-c d h" . lsp-ui-doc-hide))
+  ;; Better performance, see https://emacs-lsp.github.io/lsp-mode/page/performance/
+  ;; Interesting https://bling.github.io/blog/2016/01/18/why-are-you-changing-gc-cons-threshold/
+  ;; Um zu Monitoren, wie oft GC durchgeführt wird: (setq garbage-collection-messages t)
+  ;; Um immer beim "Unfocus" von Emacs GC zu triggern: (add-hook 'focus-out-hook 'garbage-collect)
+  (setq gc-cons-threshold 100000000) ;; 100 mb, default was 800 kb
+  (setq read-process-output-max (* 1024 1024)) ;; 1 mb , default was 4096 b
   :commands lsp)
+
+(use-package lsp-ui
+  :ensure t
+  :defer t
+  :config
+  (setq lsp-ui-doc-enable 1)
+  (setq lsp-ui-doc-delay 3)
+  ;; Dass es beim drüberhovern (ohne Maus) zeigt
+  (setq lsp-ui-doc-show-with-cursor t)
+  :commands lsp-ui-mode)
+
+(use-package lsp-treemacs
+  :ensure t
+  :defer t
+  :commands lsp-treemacs-errors-list)
 
 ;; Needed somehow for python + lsp
 (use-package all-the-icons
   :ensure t
   :defer t)
-
-;; optionally
-(use-package lsp-ui
-  :ensure t
-  :defer t
-  :commands lsp-ui-mode)
 
 ;; if you are ivy user
 (use-package lsp-ivy
@@ -556,11 +567,6 @@
   (setq ivy-re-builders-alist
         '((t . ivy--regex-plus)))
   :commands lsp-ivy-workspace-symbol)
-
-(use-package lsp-treemacs
-  :ensure t
-  :defer t
-  :commands lsp-treemacs-errors-list)
 
 ;; optionally if you want to use debugger
 (use-package dap-mode)
@@ -674,7 +680,7 @@
   ;;       (add-hook 'before-save-hook #'elixir-format t t)))
 
   ;; documentation popup timeout / delay
-  (setq lsp-ui-doc-delay 2)
+  ;;  (setq lsp-ui-doc-delay 2)
 
   )
 
