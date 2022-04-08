@@ -429,6 +429,15 @@
   (setq projectile-auto-discover nil)
   (setq projectile-sort-order 'recently-active)
 
+  ;;; Nested Project
+  ;; with bottom-up first, we always get dir with .hg / .git
+  ;; even if true project directory is sitting underneath
+  (setq projectile-project-root-files-functions
+   '(projectile-root-local
+     projectile-root-top-down
+     projectile-root-bottom-up
+     projectile-root-top-down-recurring))
+
   :bind (:map projectile-mode-map
               ("C-c p" . projectile-command-map)))
 
@@ -836,15 +845,6 @@
 
 ;;; Cursor goes to Help buffer
 (setq help-window-select t)
-
-;;; Nested Project
-;; with bottom-up first, we always get dir with .hg / .git
-;; even if true project directory is sitting underneath
-(setq projectile-project-root-files-functions
-      '(projectile-root-local
-        projectile-root-top-down
-        projectile-root-top-down-recurring
-        projectile-root-bottom-up))
 
 ;;; Tramp
 ;; damit man Dateien über SSH öffnen kann
