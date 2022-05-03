@@ -104,8 +104,8 @@
 
       message-send-mail-function 'smtpmail-send-it
 
-      ;; Flags nicht als Symbole
-      mu4e-use-fancy-chars 'nil
+      ;; Flags als Symbole
+      mu4e-use-fancy-chars 't
       ;; "-o" wichtig, da sonst das Programm nicht beendet wird und von mu4e
       ;; nicht -wieder aufgerufen werden kann
       mu4e-get-mail-command "offlineimap -o -q"
@@ -253,7 +253,6 @@
   (advice-add 'org-capture-finalize :after 'org-save-all-org-buffers)
   (advice-add 'org-agenda-todo :after 'org-save-all-org-buffers)
   (advice-add 'org-agenda-schedule :after (lambda (&rest args) (org-save-all-org-buffers)))
-
 
   ;; geht irgendwie nicht zu installieren?
   ;; vielleicht org-notifications benutzen?
@@ -475,6 +474,10 @@
     (add-to-list 'global-mode-string '("" mode-line-keycast))
     ;; (keycast-mode)
     )
+
+(use-package json-mode
+  :ensure t
+  :defer t)
 
 ;;;; ---- Programming Languages ----
 
