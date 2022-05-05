@@ -437,8 +437,20 @@
      projectile-root-bottom-up
      projectile-root-top-down-recurring))
 
+  :config
+  (use-package projectile-ripgrep
+    :ensure t
+    :bind (:map projectile-mode-map
+                ("C-c p s" . projectile-ripgrep)))
+
+  (use-package counsel-projectile
+    :ensure t
+    :bind (:map projectile-mode-map
+                ("C-c p c" . counsel-projectile-rg)))
+
   :bind (:map projectile-mode-map
-              ("C-c p" . projectile-command-map)))
+              ("C-c p" . projectile-command-map)
+              ("C-c p b" . counsel-projectile-switch-to-buffer)))
 
 ;; Um Mode-Namen in der Mode Line zu verändern oder ganz zu entfernen
 ;; benutzbar in `use-package' via `:diminish' Keyword
