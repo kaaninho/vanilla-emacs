@@ -302,7 +302,10 @@
         org-edit-src-content-indentation 0
         ;; org-capture funktioniert nicht weil Variable nicht bekannt,
         ;; deshalb setzen
-        org-indent-indentation-per-level 2
+        org-indent-indentation-per-level 0
+        ;; dies wegen "nach enter nicht einrücken. ggf. nicht nötig,
+        ;; wahrscheinlich eher `(electric-indent-mode -1)`
+        org-adapt-indentation nil
         org-enable-reveal-js-support t
         org-hide-emphasis-markers t
         org-emphasis-alist '(("*" bold)
@@ -336,10 +339,6 @@
                                     (org-remove-inline-images)
                                     (org-present-show-cursor)
                                     (org-present-read-write)))
-
-         ;; org-mode disable indentation after return
-         ;; (add-hook 'org-mode-hook (lambda () (electric-indent-mode -1)))
-
          ))
 
   ;; When `org-hide-emphasis-markers' is `t' it's convenient to see
