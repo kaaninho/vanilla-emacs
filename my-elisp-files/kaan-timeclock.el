@@ -47,6 +47,9 @@
 (defun timeclock-open-timelog-file ()
   (interactive)
   (find-file timeclock-file)
+  (let ((day (format-time-string "%d")))
+    (write-file (concat "./timelog-backup/" day "-timelog")))
+  (find-file timeclock-file)
   (goto-char (point-max)))
 
 
