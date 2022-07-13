@@ -1,14 +1,15 @@
+(require 'package)
+(package-initialize)
+(setq package-archives
+      '(("gnu" . "http://elpa.gnu.org/packages/")
+        ("melpa" . "http://melpa.org/packages/")))
+(unless package-archive-contents
+  (package-refresh-contents))
 ;;; I use "use-package" for package management
 (unless (package-installed-p 'use-package)
   (package-install 'use-package))
 (require 'use-package)
-(require 'package)
-(setq package-archives
-      '(("gnu" . "http://elpa.gnu.org/packages/")
-        ("melpa" . "http://melpa.org/packages/")))
-(package-initialize)
-(unless package-archive-contents
-  (package-refresh-contents))
+
 
 (setq my-elisp-files-path "~/.emacs.d/my-elisp-files")
 (defun load-my-elisp-file (filename)
