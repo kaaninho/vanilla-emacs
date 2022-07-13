@@ -714,7 +714,9 @@
                           (require 'lsp-pyright)
                           (lsp))))  ; or lsp-deferred
 
-
+(use-package haskell-mode
+  :ensure t
+  :defer t)
 
 ;;;; ---- Global Key Bindings ----
 
