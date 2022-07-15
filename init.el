@@ -491,6 +491,11 @@
   :ensure t
   :defer t)
 
+(use-package multiple-cursors
+  :ensure t
+  :defer t
+  :bind ("C-M-m" . 'mc/edit-lines))
+
 ;;;; ---- Programming Languages ----
 
 ;;; Clojure
@@ -933,8 +938,6 @@
 
 
 ;;;; TODO
-
-;; TODO: MULTI CURSORS
 
 ;; TODO: Schriftart: Hack statt Deja Vu
 
