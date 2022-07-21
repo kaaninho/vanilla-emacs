@@ -440,8 +440,10 @@
   :config
   (use-package projectile-ripgrep
     :ensure t
-    :bind (:map projectile-mode-map
-                ("C-c p s" . projectile-ripgrep)))
+
+    :bind (;; To get buffer of results, use ivy-occur (C-c C-o)
+           (:map projectile-mode-map
+                 ("C-c p s" . counsel-projectile-rg))))
 
   (use-package counsel-projectile
     :ensure t
