@@ -910,15 +910,22 @@
 
 ;;;; ---- Tips, Tricks and Workarounds ----
 
+;;; Vervollständigung / Filtern von read input ist case sensitive
+;;;
+;; Das könnte an `ido-completing-read' liegen. Das liest z. B. bei
+;; `mu4e' beim Jump zu einem Maildir den Input. Da kann man einfach
+;;`ido-toggle-case' ausführen, und es ist wieder insensitive
+
 ;;; Command History
+;;;
 ;; Das hier setzen, falls command-history Duplikate zeigt
 ;; (setq  history-delete-duplicates t)
 ;; Falls man die History begrenzen möchte in der Größe
 ;; (setq history-length 150)
 ;; (setq extended-command-history nil)  ; hiermit manuell die ganze Liste löschen
 
-
 ;;; Bug, still there?
+;;;
 ;; This is a bug. The variable on the left side is old but still used, but
 ;; cannot be found anymore.
 ;; TODO: Delete at next update!
