@@ -933,12 +933,14 @@
 ;; (setq org-priority-lowest org-lowest-priority)
 
 ;;; org-refile funktioniert nicht wegen
+;;;
 ;; "Invalid function: org-preserve-local-variables"
 ;; Dann: lösche kompilierte Dateien und rekompiliere:
 ;; `cd ~/.emacs.d && find . -name *.elc -print0 | xargs -0 rm`
 ;; Danach `M-x spacemacs/recompile-elpa`
 
 ;;; Alte Netzlive Elixir Einstellungen
+;;;
 ;; (with-eval-after-load 'lsp-mode
 ;;   (setq lsp-restart 'auto-restart)
 ;;   (setq lsp-file-watch-threshold 25000)
@@ -951,7 +953,6 @@
 ;; TODO: Schriftart: Hack statt Deja Vu
 
 ;; TODO: Selectrum? https://github.com/raxod502/selectrum
-
 
 ;;;; Aussortiert
 
