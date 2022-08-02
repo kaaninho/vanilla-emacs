@@ -1,15 +1,24 @@
-(require 'package)
-(package-initialize)
-(setq package-archives
-      '(("gnu" . "http://elpa.gnu.org/packages/")
-        ("melpa" . "http://melpa.org/packages/")))
-(unless package-archive-contents
-  (package-refresh-contents))
-;;; I use "use-package" for package management
-(unless (package-installed-p 'use-package)
-  (package-install 'use-package))
-(require 'use-package)
+;;;; Emacs Config File
+;;;; Author: Kaan Sahin
 
+;;; Package management
+
+;; Comment in, when updates are needed
+
+;; (require 'package)
+;; (package-initialize)
+
+;; (setq package-archives
+;;       '(("gnu" . "http://elpa.gnu.org/packages/")
+;;         ("melpa" . "http://melpa.org/packages/")))
+
+;; (unless package-archive-contents
+;;   (package-refresh-contents))
+
+;;; I use "use-package" for package management
+;; (unless (package-installed-p 'use-package)
+;;   (package-install 'use-package))
+;; (require 'use-package)
 
 (setq my-elisp-files-path "~/.emacs.d/my-elisp-files")
 (defun load-my-elisp-file (filename)
