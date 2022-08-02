@@ -439,20 +439,17 @@
 
   :config
   (use-package projectile-ripgrep
-    :ensure t
-
-    :bind (;; To get buffer of results, use ivy-occur (C-c C-o)
-           (:map projectile-mode-map
-                 ("C-c p s" . counsel-projectile-rg))))
+    :ensure t)
 
   (use-package counsel-projectile
-    :ensure t
-    :bind (:map projectile-mode-map
-                ("C-c p c" . counsel-projectile-rg)))
+    :ensure t)
 
-  :bind (:map projectile-mode-map
-              ("C-c p" . projectile-command-map)
-              ("C-c p b" . counsel-projectile-switch-to-buffer)))
+  :bind ((:map projectile-mode-map
+               ("C-c p" . projectile-command-map)
+               ("C-c p b" . counsel-projectile-switch-to-buffer))
+         ;; To get buffer of results, use ivy-occur (C-c C-o)
+         (:map projectile-mode-map
+               ("C-c p s" . counsel-projectile-rg))))
 
 ;; Um Mode-Namen in der Mode Line zu verändern oder ganz zu entfernen
 ;; benutzbar in `use-package' via `:diminish' Keyword
