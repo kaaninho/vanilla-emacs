@@ -520,7 +520,10 @@
          (clojure-mode . (lambda ()
                            (load-my-elisp-file "insert-define-record-type.el")
                            (bind-key (kbd "C-c C-r C-r") 'insert-define-record-type)))
-         (clojure-mode . (lambda () (add-hook 'before-save-hook 'cider-format-buffer nil t)))))
+
+         ;; Do this with dir-locals
+         ;; (clojure-mode . (lambda () (add-hook 'before-save-hook 'cider-format-buffer nil t)))
+         ))
 
 ;;; CIDER
 (use-package cider
