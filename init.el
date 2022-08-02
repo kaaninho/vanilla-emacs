@@ -498,6 +498,11 @@
   :defer t
   :bind ("C-M-m" . 'mc/edit-lines))
 
+(use-package diredfl
+  :ensure t
+  :defer t
+  :hook (dired-mode . diredfl-mode))
+
 ;;;; ---- Programming Languages ----
 
 ;;; Clojure
