@@ -20,6 +20,9 @@
 ;;   (package-install 'use-package))
 ;; (require 'use-package)
 
+;; (require 'use-package-ensure)
+;; (setq use-package-always-ensure t)
+
 (setq my-elisp-files-path "~/.emacs.d/my-elisp-files")
 (defun load-my-elisp-file (filename)
   (load-file (concat my-elisp-files-path "/" filename)))
@@ -54,7 +57,6 @@
 
 ;;; magit
 (use-package magit
-  :ensure t
   :defer t
   :config
   ;; show more detailed diff
@@ -67,23 +69,18 @@
   :bind ("C-x g" . magit))
 
 (use-package git-timemachine
-  :ensure t
   :defer t)
 
 ;; noch konfigurieren / testen
 (use-package helpful
-  :ensure t)
-
+  )
 (use-package csv-mode
-  :ensure t
   :defer t)
 
 (use-package yaml-mode
-  :ensure t
   :defer t)
 
 (use-package nix-mode
-  :ensure t
   :defer t
   :mode "\\.nix\\'")
 
@@ -176,7 +173,6 @@
 
 ;;; Ivy
 (use-package ivy
-  :ensure t
   :defer t
   :diminish ""
   :init
@@ -184,7 +180,6 @@
 
 ;;; Counsel
 (use-package counsel
-  :ensure t
   :defer t
   :diminish ""
   :bind ("C-x C-r" . counsel-buffer-or-recentf)
@@ -196,18 +191,15 @@
   (setq recentf-max-saved-items 500))
 
 (use-package wgrep
-  :ensure t
   :defer t)
 
 ;;; Smex fork
 ;; Persists and shows M-x history
 (use-package amx
-  :ensure t
   :init
   (amx-mode))
 
 (use-package which-key
-  :ensure t
   :defer t
   :diminish ""
   :init (which-key-mode)
@@ -219,14 +211,12 @@
 
 ;;; Swiper
 (use-package swiper
-  :ensure t
   :defer t
   :bind ("C-s" . swiper))
 
 ;;; Marginalia
 ;; Shows hints in mini buffer
 (use-package marginalia
-  :ensure t
   ;; Either bind `marginalia-cycle' globally or only in the minibuffer
   :bind (:map minibuffer-local-map
          ("M-A" . marginalia-cycle))
@@ -234,7 +224,6 @@
   (marginalia-mode))
 
 (use-package org
-  :ensure t
   :defer t
   :init
   ;; This is somehow needed for storing a link from a message for capturing
@@ -331,8 +320,7 @@
 
   ;;; org-reveal
   (use-package org-re-reveal
-    :ensure t)
-  (require 'org-re-reveal)
+    ) (require 'org-re-reveal)
 
   ;;; ORG EASY STRUCTURE TEMPLATE
   ;; To use org easy structure templates (also `<s' für Code-Beispiel)
@@ -354,11 +342,9 @@
   ;; When `org-hide-emphasis-markers' is `t' it's convenient to see
   ;; the markers when editing the text. `org-appear' does that.
   (use-package org-appear
-    :ensure t
     :defer t)
 
   (use-package org-superstar
-    :ensure t
     :config
     (setq org-superstar-remove-leading-stars nil
           org-superstar-headline-bullets-list '(" ․")
@@ -406,7 +392,6 @@
 
 ;;; Idle Highlight Mode
 (use-package auto-highlight-symbol
-  :ensure t
   :demand t
   :diminish ""
   :init
@@ -416,7 +401,6 @@
 
 ;;; Auto-Completion
 (use-package company
-  :ensure t
   :defer t
   :diminish ""
   :init
@@ -426,7 +410,6 @@
 
 ;;; Projectile
 (use-package projectile
-  :ensure t
   :diminish ""
   :init
   (projectile-mode +1)
@@ -447,12 +430,8 @@
      projectile-root-top-down-recurring))
 
   :config
-  (use-package projectile-ripgrep
-    :ensure t)
-
-  (use-package counsel-projectile
-    :ensure t)
-
+  (use-package projectile-ripgrep)
+  (use-package counsel-projectile)
   :bind ((:map projectile-mode-map
                ("C-c p" . projectile-command-map)
                ("C-c p b" . counsel-projectile-switch-to-buffer))
@@ -462,12 +441,9 @@
 
 ;; Um Mode-Namen in der Mode Line zu verändern oder ganz zu entfernen
 ;; benutzbar in `use-package' via `:diminish' Keyword
-(use-package diminish
-  :ensure t)
-
+(use-package diminish)
 ;; Schönere Themes
 (use-package doom-themes
-  :ensure t
   :config
   ;; Global settings (defaults)
   (setq doom-themes-enable-bold t    ; if nil, bold is universally disabled
@@ -489,23 +465,19 @@
 ;; angezeigt, gut für Screencasting
 ;; Zudem wird bei Funktionen der Funktionsname nebendran angezeigt
 (use-package keycast
-    :ensure t
-    :init
-    (add-to-list 'global-mode-string '("" mode-line-keycast))
-    ;; (keycast-mode)
-    )
+  :init
+  (add-to-list 'global-mode-string '("" mode-line-keycast))
+  ;; (keycast-mode)
+  )
 
 (use-package json-mode
-  :ensure t
   :defer t)
 
 (use-package multiple-cursors
-  :ensure t
   :defer t
   :bind ("C-M-m" . 'mc/edit-lines))
 
 (use-package diredfl
-  :ensure t
   :defer t
   :hook (dired-mode . diredfl-mode))
 
@@ -513,7 +485,6 @@
 
 ;;; Clojure
 (use-package clojure-mode
-  :ensure t
   :defer t
   :mode (("\\.clj\\'" . clojure-mode)
          ("\\.edn\\'" . clojure-mode))
@@ -522,7 +493,6 @@
   ;; clj-refactor don't warn when using `cljr-find-usages'
   (setq cljr-warn-on-eval nil)
   (use-package clj-refactor
-    :ensure t
     :defer t)
 
   :hook ((clojure-mode . (lambda () (bind-key (kbd "M-t") 'transpose-sexps 'clojure-mode-map 'clojure-mode?)))
@@ -538,7 +508,6 @@
 
 ;;; CIDER
 (use-package cider
-  :ensure t
   :defer t
   :init (add-hook 'cider-mode-hook #'clj-refactor-mode)
   :diminish subword-mode
@@ -557,7 +526,6 @@
 (setq elixir-path "~/.elixir-lsp/release")
 
 (use-package lsp-mode
-  :ensure t
   :defer t
   :hook ((elixir-mode . lsp)
          (lsp-mode . lsp-enable-which-key-integration)
@@ -575,7 +543,6 @@
   :commands lsp)
 
 (use-package lsp-ui
-  :ensure t
   :defer t
   :config
   (setq lsp-ui-doc-enable 1)
@@ -585,18 +552,15 @@
   :commands lsp-ui-mode)
 
 (use-package lsp-treemacs
-  :ensure t
   :defer t
   :commands lsp-treemacs-errors-list)
 
 ;; Needed somehow for python + lsp
 (use-package all-the-icons
-  :ensure t
   :defer t)
 
 ;; if you are ivy user
 (use-package lsp-ivy
-  :ensure t
   :defer t
   :init
   (setq ivy-use-virtual-buffers t)
@@ -612,7 +576,6 @@
 
 ;;; Scala
 (use-package scala-mode
-  :ensure t
   :defer t
   :interpreter
   ("scala" . scala-mode)
@@ -625,7 +588,6 @@
 
 (use-package sbt-mode
   :commands sbt-start sbt-command
-  :ensure t
   :defer t
   :config
   ;; WORKAROUND: https://github.com/ensime/emacs-sbt-mode/issues/31
@@ -641,7 +603,6 @@
 ;; Add metals backend for lsp-mode
 (use-package lsp-metals
   :defer t
-  :ensure t
   :hook (scala-mode . lsp))
 
 ;;; TODO
@@ -683,7 +644,6 @@
 ;; und mache > `git pull'
 
 (use-package elixir-mode
-  :ensure t
   :defer t
 
   :config
@@ -722,7 +682,6 @@
   )
 
 (use-package python
-  :ensure t
   :defer t
   :init
   (add-to-list 'process-coding-system-alist '("python" . (utf-8 . utf-8)))
@@ -731,13 +690,11 @@
   ))
 
 (use-package lsp-pyright
-  :ensure t
   :hook (python-mode . (lambda ()
                           (require 'lsp-pyright)
                           (lsp))))  ; or lsp-deferred
 
 (use-package haskell-mode
-  :ensure t
   :defer t)
 
 ;;;; ---- Global Key Bindings ----
