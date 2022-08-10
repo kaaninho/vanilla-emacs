@@ -479,6 +479,13 @@
   :defer t
   :hook (dired-mode . diredfl-mode))
 
+(use-package paredit
+  :defer t
+  :hook ((emacs-lisp-mode-hook . paredit-mode)
+         (clojure-mode-hook . paredit-mode)
+         (clojurescript-mode-hook . paredit-mode))
+  :bind ("C-M-g" . paredit-forward-down))
+
 ;;;; ---- Programming Languages ----
 
 ;;; Clojure
@@ -773,11 +780,6 @@
 (bind-key "C-q" #'previous-buffer)
 
 ;;;; ---- Hooks ----
-
-;;; Paredit
-(add-hook 'emacs-lisp-mode-hook 'paredit-mode)
-(add-hook 'clojure-mode-hook 'paredit-mode)
-(add-hook 'clojurescript-mode-hook 'paredit-mode)
 
 ;;; before save delete trailing white space
 ;; (add-hook 'before-save-hook #'delete-trailing-whitespace)
