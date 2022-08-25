@@ -481,9 +481,9 @@
 
 (use-package paredit
   :defer t
-  :hook ((emacs-lisp-mode-hook . paredit-mode)
-         (clojure-mode-hook . paredit-mode)
-         (clojurescript-mode-hook . paredit-mode))
+  :hook ((emacs-lisp-mode . paredit-mode)
+         (clojure-mode . paredit-mode)
+         (clojurescript . paredit-mode))
   :bind ("C-M-g" . paredit-forward-down))
 
 ;;;; ---- Programming Languages ----
@@ -715,6 +715,7 @@
 (bind-key "C-#" "@")
 (bind-key "C-+" "~")
 (bind-key "ö" "[")
+(bind-key "C-c C--" "–")
 (bind-key "M-ö" "{")
 (bind-key "ä" "]")
 (bind-key "M-ä" "}")
