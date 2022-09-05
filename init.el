@@ -282,6 +282,7 @@
   (setq org-reveal-root "file:///home/kaan/tmp/reveal.js")
 
   ;; org-babel language support
+  (setq org-confirm-babel-evaluate nil)
   (with-eval-after-load 'org
     (org-babel-do-load-languages
      'org-babel-load-languages
