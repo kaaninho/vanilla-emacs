@@ -469,6 +469,14 @@
   ;; (keycast-mode)
   )
 
+;; Um alles (also auch z. B. den Mini-Buffer) zu skalieren
+(use-package default-text-scale
+  ;; Muss es manuell über M-x installieren
+  :ensure nil
+  :defer t
+  :bind (("C-M-+" . default-text-scale-increase)
+         ("C-M-#" . default-text-scale-decrease)))
+
 (use-package json-mode
   :defer t)
 
@@ -487,6 +495,13 @@
          (clojurescript . paredit-mode))
   :bind ("C-M-g" . paredit-forward-down))
 
+;;; Plantuml
+;; Lade beim ersten Installieren das Jar-File herunter mit
+;; `plantuml-download-jar'
+(use-package plantuml-mode
+  :config
+  (setq plantuml-jar-path "bin/plantuml.jar")
+  (setq plantuml-output-type "svg"))
 ;;;; ---- Programming Languages ----
 
 ;;; Clojure
@@ -836,12 +851,6 @@
 
 ;;; Backup Files:
 (load-my-elisp-file "backup.el")
-
-;;; PlantUML
-(setq plantuml-jar-path (expand-file-name "~/bin/plantuml.jar")
-      org-plantuml-jar-path plantuml-jar-path
-      plantuml-default-exec-mode 'jar
-      plantuml-output-type "svg")
 
 ;;; TODO
 ;;; direnv envrc
