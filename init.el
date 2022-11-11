@@ -145,6 +145,7 @@
 
       ;; Falls eml Dateien drin sind die nicht gut lesbar sind (nicht öffnen kann)
       mu4e-view-use-gnus t
+      mu4e-attachment-dir "/home/kaan/Downloads"
       )
   ;; Mit `q' kann man mu4e ganz verlassen (erhält dann aber auch keine Mails mehr).
   ;; Deshalb überschreiben wir es mit `previous-buffer'.
@@ -168,6 +169,14 @@
   :bind (("C-x m m" . mu4e)
          ;; Global Key Binding für Update mails
          ("C-x m u" . mu4e-update-mail-and-index)))
+
+;; Damit kann man Mails als HTML versenden einfach im
+;; compse-mail-buffer dann `org-mime-htmlize' aufrufen.
+;; Um in org-mode die Mail zu verfassen, kann man
+;; `org-mime-edit-mail-in-org-mode'
+(use-package org-mime
+  :ensure t
+  :defer t)
 
 ;;; Ivy
 (use-package ivy
@@ -501,6 +510,7 @@
 (use-package plantuml-mode
   :config
   (setq plantuml-jar-path "bin/plantuml.jar")
+  (setq org-plantuml-jar-path "/home/kaan/bin/plantuml.jar")
   (setq plantuml-output-type "svg"))
 ;;;; ---- Programming Languages ----
 

@@ -18,7 +18,7 @@
  '(jdee-db-spec-breakpoint-face-colors (cons "#131313" "#545f62"))
  '(objed-cursor-color "#ff6d7e")
  '(package-selected-packages
-   '(default-text-scale defualt-text-scale-mode defualt-text-scale plantuml-mode plantuml diredfl dired-fl zweilight-theme naga-theme haskell-mode haskell counsel-projectile projectile-ripgrep json-mode pkg-info nix-mode yaml-mode yaml wgrep org-re-reveal org-appear lsp-pyright all-the-icons elpy keycast org-superstar doom-themes org-bullets diminish amx smex csv-mode csv mu4e-alert auto-highlight-symbol idle-highlight-mode marginalia projectile clj-refactor cider clojure-mode git-timemachine org-present project counsel swiper lsp-ivy lsp-ui-mode lsp-ui elixir-mode elixir lsp scala lsp-metals sbt-mode org-notify company which-key mu4e rainbow-delimiters paredit markdown-mode))
+   '(org-mime default-text-scale defualt-text-scale-mode defualt-text-scale plantuml-mode plantuml diredfl dired-fl zweilight-theme naga-theme haskell-mode haskell counsel-projectile projectile-ripgrep json-mode pkg-info nix-mode yaml-mode yaml wgrep org-re-reveal org-appear lsp-pyright all-the-icons elpy keycast org-superstar doom-themes org-bullets diminish amx smex csv-mode csv mu4e-alert auto-highlight-symbol idle-highlight-mode marginalia projectile clj-refactor cider clojure-mode git-timemachine org-present project counsel swiper lsp-ivy lsp-ui-mode lsp-ui elixir-mode elixir lsp scala lsp-metals sbt-mode org-notify company which-key mu4e rainbow-delimiters paredit markdown-mode))
  '(pdf-view-midnight-colors (cons "#f2fffc" "#273136"))
  '(rustic-ansi-faces
    ["#273136" "#ff6d7e" "#a2e57b" "#ffed72" "#7cd5f1" "#7cd5f1" "#7cd5f1" "#f2fffc"])
