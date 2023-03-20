@@ -151,6 +151,9 @@
   ;; Deshalb überschreiben wir es mit `previous-buffer'.
   (eval-after-load 'mu4e
     '(bind-key "q" #'previous-buffer mu4e-main-mode-map))
+  ;; leichter updaten
+  (eval-after-load 'mu4e
+    '(bind-key "u" #'mu4e-update-mail-and-index mu4e-main-mode-map))
 
   ;; start mu4e
   (add-to-list 'load-path "/home/kaan/.nix-profile/share/emacs/site-lisp/mu/mu4e/")
@@ -284,7 +287,8 @@
 
   ;; Todo Faces
   (setq org-todo-keyword-faces
-      '(("TODO" . org-warning) ("To-Watch" . "yellow")
+      '(("TODO" . org-warning)
+        ("To-Watch" . "yellow")
         ("Watched" . (:foreground "#FD971F" :weight bold))))
 
   ;; org-reveal
@@ -300,7 +304,8 @@
        (haskell . t)
        (python . t)
        (latex . t)
-       (plantuml . t))))
+       (plantuml . t)
+       (scheme . t))))
 
   ;; ---- Ende :init ----
 
@@ -378,8 +383,7 @@
                                      ((x-family-fonts "Serif")    '(:family "Serif"))
                                      (nil (warn "Cannot find a Sans Serif Font.  Install Source Sans Pro."))))
                               (base-font-color     (face-foreground 'default nil 'default))
-                              (headline           `(:inherit default :weight bold :foreground ,base-font-color))
-                              (title-info-font '(:font "DejaVu Sans Mono")))
+                              (headline           `(:inherit default :weight bold :foreground ,base-font-color)))
 
                          (custom-theme-set-faces
                           'user
@@ -391,9 +395,9 @@
                           `(org-level-3 ((t (,@headline ,@variable-tuple :height 1.15))))
                           `(org-level-2 ((t (,@headline ,@variable-tuple :height 1.3))))
                           `(org-level-1 ((t (,@headline ,@variable-tuple :height 1.5))))
-                          `(org-document-title ((t (,@headline ,@title-info-font :height 1.25 :underline nil))))
-                          `(org-document-info ((t (,@headline ,@title-info-font :height 1.0 :underline nil))))
-                          `(org-warning ((t (:inherit default :weight bold :foreground "#FFAAAA" ,@title-info-font :height 1.05 :underline nil)))))))))
+                          `(org-document-title ((t (,@headline :height 1.25 :underline nil))))
+                          `(org-document-info ((t (,@headline :height 1.0 :underline nil))))
+                          `(org-warning ((t (:inherit default :weight bold :foreground "#FFAAAA" :height 1.05 :underline nil)))))))))
 
   :bind (("C-c a" . org-agenda)
          ("C-c c" . org-capture)))
@@ -501,7 +505,8 @@
   :defer t
   :hook ((emacs-lisp-mode . paredit-mode)
          (clojure-mode . paredit-mode)
-         (clojurescript . paredit-mode))
+         (clojurescript . paredit-mode)
+         (scheme-mode . paredit-mode))
   :bind ("C-M-g" . paredit-forward-down))
 
 ;;; Plantuml
@@ -554,7 +559,7 @@
 
 
 ;;; LSP
-(setq elixir-path "~/.elixir-lsp/release")
+;; (setq elixir-path "~/.elixir-lsp/release")
 
 (use-package lsp-mode
   :defer t
@@ -564,7 +569,7 @@
 
   :init
   (add-to-list 'company-backends 'company-capf)
-  (add-to-list 'exec-path elixir-path)
+  ;; (add-to-list 'exec-path elixir-path)
   ;; Better performance, see https://emacs-lsp.github.io/lsp-mode/page/performance/
   ;; Interesting https://bling.github.io/blog/2016/01/18/why-are-you-changing-gc-cons-threshold/
   ;; Um zu Monitoren, wie oft GC durchgeführt wird: (setq garbage-collection-messages t)
@@ -604,6 +609,27 @@
 (use-package dap-mode)
 ;; (use-package dap-LANGUAGE) to load the dap adapter for your language
 
+;;; Racket
+
+(use-package racket-mode
+  :defer t)
+
+;;; Chez Scheme
+
+;; (use-package geiser-chez
+;;   :defer t)
+
+;; (use-package scheme
+;;   :defer t
+;;   :mode (("\\.sls\\'" . scheme-mode)
+;;          ("\\.ss" . scheme-mode)
+;;          ("\\.sps" . scheme-mode)
+;;          ("\\.sc\\'" . scheme-mode))
+;;   :init
+;;   (add-to-list 'compilation-error-regexp-alist
+;;                '("^\\(Exception\\|Warning\\).*: .* \\(line \\([0-9]+\\), char \\([0-9]+\\) of \\(.*\\)\\)" 5 3 4 nil 2))
+;;   (setq geiser-default-implementation 'chez))
+
 
 ;;; Scala
 (use-package scala-mode
@@ -615,7 +641,7 @@
   ;;                 (add-hook 'before-save-hook #'delete-trailing-whitespace)))
   ;; (scala-mode . (lambda ()
   ;;                       (add-hook 'before-save-hook #'lsp-format-buffer)))
-)
+  )
 
 (use-package sbt-mode
   :commands sbt-start sbt-command
@@ -671,20 +697,24 @@
 ;; Language server von hier geklont:
 ;; https://github.com/elixir-lsp/elixir-ls
 ;; Muss manchmal aktualisiert werden, gehe ins Repo
-;; > cd "~/.elixir-lsp/release/language_server.sh"
-;; und mache > `git pull'
+;; > cd ~/.elixir-lsp/release/
+;; und mache
+;; > `git pull'
 
 (use-package elixir-mode
   :defer t
 
   :config
   (setq  elixir-backend 'lsp
-         elixir-ls-path elixir-path
+         ;; elixir-ls-path elixir-path
          lsp-elixir-fetch-deps nil
+         ;; Deaktiviere Unterstreichungen (flycheck oder flymake)
+         lsp-diagnostics-provider :none
+
          ;; needed?
-         ;;lsp-elixir-local-server-command "~/.elixir-lsp/release/language_server.sh"
+         ;; lsp-elixir-local-server-command "/home/runner/.emacs.d/.cache/lsp/elixir-ls/language_server.sh"
          )
-  (add-to-list 'exec-path "~/.elixir-lsp/release/language_server.sh")
+  ;; (add-to-list 'exec-path "~/.elixir-lsp/release/language_server.sh")
   ;; TODO
   ;; (spacemacs/declare-prefix-for-mode 'elixir-mode
   ;;                                    "mt" "tests" "testing related functionality")
