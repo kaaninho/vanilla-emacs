@@ -758,6 +758,14 @@
 (use-package haskell-mode
   :defer t)
 
+;; Highlight "TODO:" In commented code
+(use-package hl-todo
+  :ensure t
+  :custom-face
+  (hl-todo ((t (:inherit hl-todo :italic t))))
+  :hook ((prog-mode . hl-todo-mode)
+         (yaml-mode . hl-todo-mode)))
+
 ;;;; ---- Global Key Bindings ----
 
 ;;; Protokoll-Template
