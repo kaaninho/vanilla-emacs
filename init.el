@@ -766,6 +766,11 @@
   :hook ((prog-mode . hl-todo-mode)
          (yaml-mode . hl-todo-mode)))
 
+(use-package emacs
+  :init
+  (setq-default abbrev-mode t)
+  (setq save-abbrevs 'silently))
+
 ;;;; ---- Global Key Bindings ----
 
 ;;; Protokoll-Template
