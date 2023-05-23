@@ -621,7 +621,9 @@
 
 (use-package racket-mode
   :defer t
-  :hook ((racket-mode . racket-xp-mode)))
+  :hook ((racket-mode . racket-xp-mode))
+  :init
+  (setq racket-program "/home/kaan/.nix-profile/bin/racket"))
 
 ;;; Chez Scheme
 
