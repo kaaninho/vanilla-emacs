@@ -513,7 +513,8 @@
   :hook ((emacs-lisp-mode . paredit-mode)
          (clojure-mode . paredit-mode)
          (clojurescript . paredit-mode)
-         (scheme-mode . paredit-mode))
+         (scheme-mode . paredit-mode)
+         (racket-mode . paredit-mode))
   :bind ("C-M-g" . paredit-forward-down))
 
 ;;; Plantuml
@@ -619,7 +620,8 @@
 ;;; Racket
 
 (use-package racket-mode
-  :defer t)
+  :defer t
+  :hook ((racket-mode . racket-xp-mode)))
 
 ;;; Chez Scheme
 
