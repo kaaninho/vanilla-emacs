@@ -647,6 +647,9 @@
   :defer t
   :interpreter
   ("scala" . scala-mode)
+  :hook
+  (scala-mode . lsp)
+  (lsp-mode . lsp-lens-mode)
   ;; :hook
   ;; (scala-mode . (lambda ()
   ;;                 (add-hook 'before-save-hook #'delete-trailing-whitespace)))
@@ -667,11 +670,20 @@
   ;; sbt-supershell kills sbt-mode:  https://github.com/hvesalai/emacs-sbt-mode/issues/152
   (setq sbt:program-options '("-Dsbt.supershell=false")))
 
-
-;; Add metals backend for lsp-mode
 (use-package lsp-metals
-  :defer t
-  :hook (scala-mode . lsp))
+  :defer t)
+
+
+;;; Die zwei folgenden waren bei der offiziellen metals scala emacs
+;;; doku empfohlen, ich lass es mal drin
+;; Posframe is a pop-up tool that must be manually installed for dap-mode
+(use-package posframe)
+
+;; Use the Debug Adapter Protocol for running tests and debugging
+(use-package dap-mode
+  :hook
+  (lsp-mode . dap-mode)
+  (lsp-mode . dap-ui-mode))
 
 ;;; TODO
 ;;; Um Häufigkeit von Keybinding-Usage anzuzeigen
