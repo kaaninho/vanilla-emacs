@@ -569,25 +569,7 @@
                          (add-hook 'before-save-hook #'elixir-format nil t)))
 
   :config
-  (setq  elixir-backend 'lsp
-         ;; elixir-ls-path elixir-path
-         ;; Needed?
-         ;; lsp-elixir-fetch-deps nil
-         ;; Deaktiviere Unterstreichungen (flycheck oder flymake)
-         ;; lsp-diagnostics-provider :none
-
-         ;; needed?
-         ;; lsp-elixir-local-server-command "/home/runner/.emacs.d/.cache/lsp/elixir-ls/language_server.sh"
-         )
-  ;; (add-to-list 'exec-path "~/.elixir-lsp/release/language_server.sh")
-  ;; TODO
-  ;; (spacemacs/declare-prefix-for-mode 'elixir-mode
-  ;;                                    "mt" "tests" "testing related functionality")
-  ;; (spacemacs/set-leader-keys-for-major-mode 'elixir-mode
-  ;;                                           "ta" 'exunit-verify-all
-  ;;                                           "tb" 'exunit-verify
-  ;;                                           "tr" 'exunit-rerun
-  ;;                                           "tt" 'exunit-verify-single)
+  (setq  elixir-backend 'lsp)
   ;; Needed?
   ;; Elixir settings
   ;; Wenn lsp mal nicht geht (und auch z. B. linter), dann das hier ausführen:
