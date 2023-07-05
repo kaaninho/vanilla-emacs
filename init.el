@@ -618,29 +618,15 @@
 ;; (use-package dap-LANGUAGE) to load the dap adapter for your language
 
 ;;; Racket
-
+;; ATTENTION: Don't visit a file and immediately hit `C-c C-c` for a
+;; repl, this somehow fails. Wait a few seconds, then it starts. I
+;; think `racket-mode` starts a racket backend in the background, this
+;; has to be up first.
 (use-package racket-mode
   :defer t
   :hook ((racket-mode . racket-xp-mode))
   :init
   (setq racket-program "/home/kaan/.nix-profile/bin/racket"))
-
-;;; Chez Scheme
-
-;; (use-package geiser-chez
-;;   :defer t)
-
-;; (use-package scheme
-;;   :defer t
-;;   :mode (("\\.sls\\'" . scheme-mode)
-;;          ("\\.ss" . scheme-mode)
-;;          ("\\.sps" . scheme-mode)
-;;          ("\\.sc\\'" . scheme-mode))
-;;   :init
-;;   (add-to-list 'compilation-error-regexp-alist
-;;                '("^\\(Exception\\|Warning\\).*: .* \\(line \\([0-9]+\\), char \\([0-9]+\\) of \\(.*\\)\\)" 5 3 4 nil 2))
-;;   (setq geiser-default-implementation 'chez))
-
 
 ;;; Scala
 (use-package scala-mode
