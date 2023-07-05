@@ -761,8 +761,13 @@
 
 (use-package emacs
   :init
+
+  ;; abbrev
   (setq-default abbrev-mode t)
-  (setq save-abbrevs 'silently))
+  (setq save-abbrevs 'silently)
+
+  ;; only ask for "y" and "n"
+  (fset 'yes-or-no-p 'y-or-n-p))
 
 ;;;; ---- Global Key Bindings ----
 
