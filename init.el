@@ -565,9 +565,42 @@
         cider-overlays-use-font-lock t)
   (cider-repl-toggle-pretty-printing))
 
+(use-package elixir-mode
+  :defer t
 
-;;; LSP
-;; (setq elixir-path "~/.elixir-lsp/release")
+  :hook (elixir-mode . (lambda ()
+                         (add-hook 'before-save-hook #'elixir-format nil t)))
+
+  :config
+  (setq  elixir-backend 'lsp
+         ;; elixir-ls-path elixir-path
+         ;; Needed?
+         ;; lsp-elixir-fetch-deps nil
+         ;; Deaktiviere Unterstreichungen (flycheck oder flymake)
+         ;; lsp-diagnostics-provider :none
+
+         ;; needed?
+         ;; lsp-elixir-local-server-command "/home/runner/.emacs.d/.cache/lsp/elixir-ls/language_server.sh"
+         )
+  ;; (add-to-list 'exec-path "~/.elixir-lsp/release/language_server.sh")
+  ;; TODO
+  ;; (spacemacs/declare-prefix-for-mode 'elixir-mode
+  ;;                                    "mt" "tests" "testing related functionality")
+  ;; (spacemacs/set-leader-keys-for-major-mode 'elixir-mode
+  ;;                                           "ta" 'exunit-verify-all
+  ;;                                           "tb" 'exunit-verify
+  ;;                                           "tr" 'exunit-rerun
+  ;;                                           "tt" 'exunit-verify-single)
+  ;; Needed?
+  ;; Elixir settings
+  ;; Wenn lsp mal nicht geht (und auch z. B. linter), dann das hier ausführen:
+  ;; rm -r deps _build .elixir_ls && mix deps.get
+  ;; ggf. auch mix deps.compile
+
+  ;; das hier setzen, damit emacs die deps nicht automatisch fetcht (gab bei mir
+  ;; probleme bzgl mix.lock)
+  ;; lsp-elixir-fetch-deps nil
+  )
 
 (use-package lsp-mode
   :defer t
@@ -640,7 +673,7 @@
   ;; (scala-mode . (lambda ()
   ;;                 (add-hook 'before-save-hook #'delete-trailing-whitespace)))
   ;; (scala-mode . (lambda ()
-  ;;                       (add-hook 'before-save-hook #'lsp-format-buffer)))
+  ;;                       (add-hook 'before-save-hook #'lsp-format-buffer nil t)))
   )
 
 (use-package sbt-mode
@@ -701,55 +734,6 @@
 ;;           ivy-done
 ;;           magit-previous-line
 ;;           ivy-previous-line)))
-
-;;; Elixir
-;; Language server von hier geklont:
-;; https://github.com/elixir-lsp/elixir-ls
-;; Muss manchmal aktualisiert werden, gehe ins Repo
-;; > cd ~/.elixir-lsp/release/
-;; und mache
-;; > `git pull'
-
-(use-package elixir-mode
-  :defer t
-
-  :config
-  (setq  elixir-backend 'lsp
-         ;; elixir-ls-path elixir-path
-         lsp-elixir-fetch-deps nil
-         ;; Deaktiviere Unterstreichungen (flycheck oder flymake)
-         lsp-diagnostics-provider :none
-
-         ;; needed?
-         ;; lsp-elixir-local-server-command "/home/runner/.emacs.d/.cache/lsp/elixir-ls/language_server.sh"
-         )
-  ;; (add-to-list 'exec-path "~/.elixir-lsp/release/language_server.sh")
-  ;; TODO
-  ;; (spacemacs/declare-prefix-for-mode 'elixir-mode
-  ;;                                    "mt" "tests" "testing related functionality")
-  ;; (spacemacs/set-leader-keys-for-major-mode 'elixir-mode
-  ;;                                           "ta" 'exunit-verify-all
-  ;;                                           "tb" 'exunit-verify
-  ;;                                           "tr" 'exunit-rerun
-  ;;                                           "tt" 'exunit-verify-single)
-  ;; Needed?
-  ;; Elixir settings
-  ;; Wenn lsp mal nicht geht (und auch z. B. linter), dann das hier ausführen:
-  ;; rm -r deps _build .elixir_ls && mix deps.get
-  ;; ggf. auch mix deps.compile
-
-  ;; das hier setzen, damit emacs die deps nicht automatisch fetcht (gab bei mir
-  ;; probleme bzgl mix.lock)
-  ;; lsp-elixir-fetch-deps nil
-
-  ;; (add-hook 'elixir-mode-hook
-  ;;     (lambda ()
-  ;;       (add-hook 'before-save-hook #'elixir-format t t)))
-
-  ;; documentation popup timeout / delay
-  ;;  (setq lsp-ui-doc-delay 2)
-
-  )
 
 (use-package python
   :defer t
