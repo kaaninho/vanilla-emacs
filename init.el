@@ -236,9 +236,6 @@
 (use-package org
   :defer t
   :init
-  ;; This is somehow needed for storing a link from a message for capturing
-  (require 'org-mu4e)
-
   ;; Org-capture-templates
   (setq org-capture-templates
         `(("t" "Todo mit Datei-Link" entry (file+headline "todos.org" "Inbox")
