@@ -746,7 +746,10 @@
   (setq save-abbrevs 'silently)
 
   ;; only ask for "y" and "n"
-  (fset 'yes-or-no-p 'y-or-n-p))
+  (fset 'yes-or-no-p 'y-or-n-p)
+
+  :bind ("C-c C-k" . comment-or-uncomment-region)
+  )
 
 ;;;; ---- Global Key Bindings ----
 
