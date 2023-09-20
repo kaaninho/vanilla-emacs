@@ -470,17 +470,20 @@
   (setq projectile-project-search-path '(("~/projekte/" . 2) ("~/active-group/" . 5)))
   ;; The auto-discover consumes too much time. Trigger manually with
   ;; (projectile-discover-projects-in-search-path)
-  (setq projectile-auto-discover nil)
+  ;; Hab es trotzdem mal auf `t' gesetzt, mal gucken (davor wars, wegen Kommentar oben, auf `nil')
+  (setq projectile-auto-discover t)
   (setq projectile-sort-order 'recently-active)
 
-  ;;; Nested Project
+;;; Nested Project
   ;; with bottom-up first, we always get dir with .hg / .git
   ;; even if true project directory is sitting underneath
   (setq projectile-project-root-files-functions
-   '(projectile-root-local
-     projectile-root-top-down
-     projectile-root-bottom-up
-     projectile-root-top-down-recurring))
+        '(projectile-root-local
+          projectile-root-top-down
+          projectile-root-bottom-up
+          projectile-root-top-down-recurring))
+
+  (setq projectile-enable-caching t)
 
   :config
   (use-package projectile-ripgrep)
