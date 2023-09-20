@@ -631,6 +631,22 @@
   ;; das hier setzen, damit emacs die deps nicht automatisch fetcht (gab bei mir
   ;; probleme bzgl mix.lock)
   ;; lsp-elixir-fetch-deps nil
+
+  ;; overwrite fn from elixir-format https://github.com/elixir-editors/emacs-elixir/blob/master/elixir-format.el#L97C1-L105C1
+  ;; because the elixir code reload constantly picks them up and complains about duplicate modules.
+  ;; add ".#" in from of filename to prevent that/resp. make it easier to prevent it.
+  (defun elixir-format--temp-file-path ()
+    "Make a temp file in the current directory, because mix format
+     applies rules based on path patterns and looks for .formatter.exs
+     files in subdirectories."
+    (let ((target-file-name (elixir-format--target-file-name)))
+      (concat
+       (file-name-directory target-file-name)
+       ".#"
+       (file-name-base target-file-name)
+       "-emacs-elixir-format."
+       (file-name-extension target-file-name))))
+
   )
 
 ;; Für Elixir Phoenix, inline HTML
