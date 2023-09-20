@@ -188,6 +188,15 @@
   :init
   (ivy-mode))
 
+;;; This is for inlining the Mx- and Search buffers
+;;  a centered frame appears
+(use-package ivy-posframe
+  :diminish ""
+  :after ivy
+  :config
+  (setq ivy-posframe-border-width 1)
+  (set-face-attribute 'ivy-posframe-border nil :background "#FD971F"))
+
 ;;; Counsel
 (use-package counsel
   :defer t
