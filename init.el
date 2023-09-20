@@ -551,6 +551,11 @@
          (racket-mode . paredit-mode))
   :bind ("C-M-g" . paredit-forward-down))
 
+(use-package smartparens
+  :defer t
+  :config
+  (require 'smartparens-config))
+
 ;;; Plantuml
 ;; Lade beim ersten Installieren das Jar-File herunter mit
 ;; `plantuml-download-jar'
@@ -602,13 +607,20 @@
 (use-package elixir-mode
   :defer t
 
-  :hook (elixir-mode . (lambda ()
-                         (add-hook 'before-save-hook #'elixir-format nil t)))
+  :hook ((elixir-mode . lsp)
+         (elixir-mode . (lambda ()
+                           (add-hook 'before-save-hook #'elixir-format nil t)))
+         (elixir-mode . yas-minor-mode)
+         (elixir-mode . smartparens-mode))
 
   :config
   (setq  elixir-backend 'lsp)
+  ;; Default keine Lenses, nerven nur
+  (setq lsp-lens-enable nil)
   ;; Needed?
-  ;; Elixir settings
+  ;; (add-to-list 'exec-path elixir-path)
+
+  ;; Elixir settings / troubleshoot
   ;; Wenn lsp mal nicht geht (und auch z. B. linter), dann das hier ausführen:
   ;; rm -r deps _build .elixir_ls && mix deps.get
   ;; ggf. auch mix deps.compile
