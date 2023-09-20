@@ -630,6 +630,28 @@
   ;; lsp-elixir-fetch-deps nil
   )
 
+;; Für Elixir Phoenix, inline HTML
+(use-package polymode
+  :mode ("\.ex$" . poly-elixir-web-mode)
+  :ensure t
+  :config
+  (define-hostmode poly-elixir-hostmode :mode 'elixir-mode)
+  (define-innermode poly-liveview-expr-elixir-innermode
+    :mode 'web-mode
+    :head-matcher (rx line-start (* space) "~H" (= 3 (char "\"'")) line-end)
+    :tail-matcher (rx line-start (* space) (= 3 (char "\"'")) line-end)
+    :head-mode 'host
+    :tail-mode 'host
+    :allow-nested nil
+    :keep-in-mode 'host
+    :fallback-mode 'host)
+  (define-polymode poly-elixir-web-mode
+    :hostmode 'poly-elixir-hostmode
+    :innermodes '(poly-liveview-expr-elixir-innermode))
+  (setq web-mode-engines-alist '(("elixir" . "\\.ex\\'"))))
+
+
+
 (use-package lsp-mode
   :defer t
   :hook ((elixir-mode . lsp)
