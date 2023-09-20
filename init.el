@@ -178,7 +178,6 @@
 ;; Um in org-mode die Mail zu verfassen, kann man
 ;; `org-mime-edit-mail-in-org-mode'
 (use-package org-mime
-  :ensure t
   :defer t)
 
 ;;; Ivy
