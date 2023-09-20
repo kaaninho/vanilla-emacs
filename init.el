@@ -699,6 +699,9 @@
 (use-package dap-mode)
 ;; (use-package dap-LANGUAGE) to load the dap adapter for your language
 
+(use-package flycheck
+  :init (global-flycheck-mode))
+
 ;;; Racket
 ;; ATTENTION: Don't visit a file and immediately hit `C-c C-c` for a
 ;; repl, this somehow fails. Wait a few seconds, then it starts. I
