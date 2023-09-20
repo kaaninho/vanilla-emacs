@@ -807,11 +807,14 @@
 
 ;; Highlight "TODO:" In commented code
 (use-package hl-todo
-  :ensure t
   :custom-face
   (hl-todo ((t (:inherit hl-todo :italic t))))
   :hook ((prog-mode . hl-todo-mode)
          (yaml-mode . hl-todo-mode)))
+
+(use-package envrc
+  :init
+  (envrc-global-mode))
 
 (use-package emacs
   :init
@@ -959,10 +962,6 @@
 
 ;;; Backup Files:
 (load-my-elisp-file "backup.el")
-
-;;; TODO
-;;; direnv envrc
-;;(envrc-global-mode)
 
 ;;; Cursor goes to Help buffer
 (setq help-window-select t)
