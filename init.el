@@ -654,26 +654,25 @@
 
 (use-package lsp-mode
   :defer t
-  :hook ((elixir-mode . lsp)
-         (lsp-mode . lsp-enable-which-key-integration)
+  :hook ((lsp-mode . lsp-enable-which-key-integration)
          (python-mode . lsp))
 
   :init
-  (add-to-list 'company-backends 'company-capf)
-  ;; (add-to-list 'exec-path elixir-path)
   ;; Better performance, see https://emacs-lsp.github.io/lsp-mode/page/performance/
   ;; Interesting https://bling.github.io/blog/2016/01/18/why-are-you-changing-gc-cons-threshold/
   ;; Um zu Monitoren, wie oft GC durchgeführt wird: (setq garbage-collection-messages t)
   ;; Um immer beim "Unfocus" von Emacs GC zu triggern: (add-hook 'focus-out-hook 'garbage-collect)
   (setq gc-cons-threshold 100000000) ;; 100 mb, default was 800 kb
   (setq read-process-output-max (* 1024 1024)) ;; 1 mb , default was 4096 b
+
+  (lsp-lens-mode )
   :commands lsp)
 
 (use-package lsp-ui
   :defer t
   :config
   (setq lsp-ui-doc-enable 1)
-  (setq lsp-ui-doc-delay 3)
+  (setq lsp-ui-doc-delay 2)
   ;; Dass es beim drüberhovern (ohne Maus) zeigt
   (setq lsp-ui-doc-show-with-cursor t)
   :commands lsp-ui-mode)
@@ -718,7 +717,9 @@
   ("scala" . scala-mode)
   :hook
   (scala-mode . lsp)
-  (lsp-mode . lsp-lens-mode)
+
+  ;; Wenn dann: (scala-mode . lsp-lens-mode) ?!?!
+  ;; (lsp-mode . lsp-lens-mode)
   ;; :hook
   ;; (scala-mode . (lambda ()
   ;;                 (add-hook 'before-save-hook #'delete-trailing-whitespace)))
