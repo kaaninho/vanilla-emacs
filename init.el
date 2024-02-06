@@ -100,13 +100,13 @@
       mu4e-trash-folder "/activemail/Trash"
       mu4e-drafts-folder "/activemail/drafts"
       user-mail-address "kaan.sahin@active-group.de"
-      smtpmail-default-smtp-server "smtp.active-group.de"
-      smtpmail-smtp-server "smtp.active-group.de"
+      smtpmail-default-smtp-server "mail.active-group.de"
+      smtpmail-smtp-server "mail.active-group.de"
       smtpmail-auth-credentials (expand-file-name "~/.authinfo.gpg")
       smtpmail-smtp-service 587
       mu4e-compose-signature
       "\nKaan Sahin\nActive Group GmbH\nkaan.sahin@active-group.de\n+49 7071 70896 80\n\nHechinger Straße 12/1, 72072 Tübingen\nRegistergericht: Amtsgericht Stuttgart, HRB 224404\nGeschäftsführer: Dr. Michael Sperber\n"
-      smtpmail-smtp-user "sahin"
+      smtpmail-smtp-user "kaan.sahin@active-group.de"
       smtpmail-local-domain "active-group.de"
       ;; um gesendete buffer zu killen
       message-kill-buffer-on-exit t
