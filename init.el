@@ -201,7 +201,8 @@
   :after ivy
   :config
   (setq ivy-posframe-border-width 1)
-  (set-face-attribute 'ivy-posframe-border nil :background "#FD971F"))
+  (set-face-attribute 'ivy-posframe-border nil :background "#FD971F")
+  (ivy-posframe-mode))
 
 ;;; Counsel
 (use-package counsel
