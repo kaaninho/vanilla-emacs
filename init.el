@@ -562,6 +562,10 @@
          (clojurescript . paredit-mode)
          (scheme-mode . paredit-mode)
          (racket-mode . paredit-mode))
+
+  :config
+  (unbind-key "C-j" paredit-mode-map)
+  
   :bind ("C-M-g" . paredit-forward-down))
 
 (use-package smartparens
@@ -626,6 +630,8 @@
          (elixir-mode . yas-minor-mode)
          (elixir-mode . smartparens-mode))
 
+  :bind
+  ("C-k" . paredit-kill)
   :config
   (setq  elixir-backend 'lsp)
   ;; Default keine Lenses, nerven nur
@@ -855,10 +861,17 @@
   ;; only ask for "y" and "n"
   (fset 'yes-or-no-p 'y-or-n-p)
 
-  :bind ("C-c C-k" . comment-or-uncomment-region)
-  )
   (winner-mode)
 
+  ;; I have to do this, else Elixir mode is selected with Latex files
+  ;;; Latex
+  (add-to-list 'auto-mode-alist '("\\.tex\\'" . latex-mode))
+
+  :bind (:map global-map
+              :prefix-map my-prefix-map
+              :prefix "C-j"
+              ("C-k" . comment-or-uncomment-region)
+              ("g" . counsel-rg)))
 
 ;;;; ---- Global Key Bindings ----
 
