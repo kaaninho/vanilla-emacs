@@ -463,10 +463,13 @@
 (use-package company
   :defer t
   :diminish ""
+
   :init
   (global-company-mode)
-  (setq company-idle-delay 0.5)
-  :bind ("C-<return>" . company-complete))
+  (setq company-idle-delay 0.2)
+
+  :bind
+  ("C-<return>" . company-complete))
 
 ;;; Projectile
 (use-package projectile
