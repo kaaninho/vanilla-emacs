@@ -154,7 +154,10 @@
   ;; Mit `q' kann man mu4e ganz verlassen (erhält dann aber auch keine Mails mehr).
   ;; Deshalb überschreiben wir es mit `previous-buffer'.
   (eval-after-load 'mu4e
-    '(bind-key "q" #'previous-buffer mu4e-main-mode-map))
+    '(bind-key "q" (lambda ()
+                     (interactive)
+                     (winner-undo))
+               mu4e-main-mode-map))
   ;; leichter updaten
   (eval-after-load 'mu4e
     '(bind-key "u" #'mu4e-update-mail-and-index mu4e-main-mode-map))
@@ -850,6 +853,8 @@
 
   :bind ("C-c C-k" . comment-or-uncomment-region)
   )
+  (winner-mode)
+
 
 ;;;; ---- Global Key Bindings ----
 
