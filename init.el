@@ -66,6 +66,10 @@
 
   :bind ("C-x g" . magit))
 
+(use-package magit-todos
+  :after magit
+  :config (magit-todos-mode 1))
+
 (use-package git-timemachine
   :defer t)
 
