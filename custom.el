@@ -20,9 +20,9 @@
  '(jdee-db-spec-breakpoint-face-colors (cons "#131313" "#545f62"))
  '(line-number-mode nil)
  '(objed-cursor-color "#ff6d7e")
- '(org-roam-graph-viewer "/usr/bin/google-chrome")
+ '(org-roam-graph-viewer "/usr/bin/google-chrome" t)
  '(package-selected-packages
-   '(smartparens-elixir smartparens ivy-posframe company-posframe org-roam-ui org-roam envrc polymode lsp-mode hl-todo org scheme-mode geiser geiser-chez racket-mode org-mime default-text-scale defualt-text-scale-mode defualt-text-scale plantuml-mode plantuml diredfl dired-fl zweilight-theme naga-theme haskell-mode haskell counsel-projectile projectile-ripgrep json-mode pkg-info nix-mode yaml-mode yaml wgrep org-re-reveal org-appear lsp-pyright all-the-icons elpy keycast org-superstar doom-themes org-bullets diminish amx smex csv-mode csv mu4e-alert auto-highlight-symbol idle-highlight-mode marginalia projectile clj-refactor cider clojure-mode git-timemachine org-present project counsel swiper lsp-ivy lsp-ui-mode lsp-ui elixir-mode elixir lsp scala lsp-metals sbt-mode org-notify company which-key mu4e rainbow-delimiters paredit markdown-mode))
+   '(magit-todos auctex free-keys latex-mode latex smartparens-elixir smartparens ivy-posframe company-posframe org-roam-ui org-roam envrc polymode lsp-mode hl-todo org scheme-mode geiser geiser-chez racket-mode org-mime default-text-scale defualt-text-scale-mode defualt-text-scale plantuml-mode plantuml diredfl dired-fl zweilight-theme naga-theme haskell-mode haskell counsel-projectile projectile-ripgrep json-mode pkg-info nix-mode yaml-mode yaml wgrep org-re-reveal org-appear lsp-pyright all-the-icons elpy keycast org-superstar doom-themes org-bullets diminish amx smex csv-mode csv mu4e-alert auto-highlight-symbol idle-highlight-mode marginalia projectile clj-refactor cider clojure-mode git-timemachine org-present project counsel swiper lsp-ivy lsp-ui-mode lsp-ui elixir-mode elixir lsp scala lsp-metals sbt-mode org-notify company which-key mu4e rainbow-delimiters paredit markdown-mode))
  '(pdf-view-midnight-colors (cons "#f2fffc" "#273136"))
  '(rustic-ansi-faces
    ["#273136" "#ff6d7e" "#a2e57b" "#ffed72" "#7cd5f1" "#7cd5f1" "#7cd5f1" "#f2fffc"])
