@@ -255,9 +255,9 @@
   ;; Org-capture-templates
   (setq org-capture-templates
         `(("t" "Todo mit Datei-Link" entry (file+headline "todos.org" "Inbox")
-           "* TODO %?\n %i %a" :prepend t)
+           "* TODO %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n %i %a" :prepend t)
           ("z" "Todo" entry (file+headline "todos.org" "Inbox")
-           "* TODO %?\n %i" :prepend t)))
+           "* TODO %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n %i" :prepend t)))
   ;; org-agenda, org-refile
   (setq org-agenda-files '("~/org")
         org-default-notes-file "todos.org"
