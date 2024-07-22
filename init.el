@@ -135,6 +135,7 @@
       ;; Setze User-Mail-Adresse, um beim Antworten auf Mails die eigene Adresse
       ;; nicht im CC zu haben
       mu4e-user-mail-address-list '("kaan.sahin@active-group.de")
+      mu4e-compose-dont-reply-to-self t
 
       ;;; Format flowed für E-Mails
       ;; format=flowed gesendete Nachrichten brechen optional nach X Zeichen um
