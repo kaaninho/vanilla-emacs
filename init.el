@@ -53,6 +53,10 @@
 ;;; Open Init File
 (bind-key "C-x i" (lambda () (interactive) (find-file "~/.emacs.d/init.el")))
 
+;;; um auf MacOS die Option und  Meta Tasten zu tauschen
+(setq mac-option-modifier 'super)
+(setq mac-command-modifier 'meta)
+
 ;;; magit
 (use-package magit
   :defer t
@@ -87,7 +91,6 @@
   :mode "\\.nix\\'")
 
 ;;; Mail MU4E --------------
-(require 'mu4e)
 (use-package mu4e
   ;; Muss manuell installieren, klappt nicht via use-package, ebenso: mu4e-alert
   ;; Abhilfe: https://github.com/raxod502/straight.el/issues/491
@@ -95,63 +98,63 @@
   :init
   ;; Delete key binding "C-x m" for more usage below
   (unbind-key "C-x m")
-  (setq mu4e-sent-folder "/activemail/Sent"
-      ;; mu4e-sent-messages-behavior 'delete ;; Unsure how this should be configured
-      mu4e-trash-folder "/activemail/Trash"
-      mu4e-drafts-folder "/activemail/drafts"
-      user-mail-address "kaan.sahin@active-group.de"
-      smtpmail-default-smtp-server "mail.active-group.de"
-      smtpmail-smtp-server "mail.active-group.de"
-      smtpmail-auth-credentials (expand-file-name "~/.authinfo.gpg")
-      smtpmail-smtp-service 587
-      mu4e-compose-signature
-      "\nKaan Sahin\nActive Group GmbH\nkaan.sahin@active-group.de\n+49 7071 70896 80\n\nHechinger Straße 12/1, 72072 Tübingen\nRegistergericht: Amtsgericht Stuttgart, HRB 224404\nGeschäftsführer: Dr. Michael Sperber\n"
-      smtpmail-smtp-user "kaan.sahin@active-group.de"
-      smtpmail-local-domain "active-group.de"
-      ;; um gesendete buffer zu killen
-      message-kill-buffer-on-exit t
+  (setq mu4e-get-mail-command "mbsync PHL"
+        mu4e-mu-binary "/opt/homebrew/bin/mu"
 
-      message-send-mail-function 'smtpmail-send-it
+        mu4e-sent-folder "/ph/Sent"
+        ;; mu4e-sent-messages-behavior 'delete ;; Unsure how this should be configured
+        mu4e-trash-folder "/ph/Gelöschte Elemente"
+        mu4e-drafts-folder "/ph/Entwürfe"
+        user-mail-address "kaan.sahin@ph-ludwigsburg.de"
+        smtpmail-smtp-user "ph\\daj377"
+        smtpmail-smtp-server "mail.ph-gw.de"
+        smtpmail-auth-supported '(plain login)
+        ;; smtpmail-debug-info t
+        ;; smtpmail-debug-verb t
+        smtpmail-auth-credentials (expand-file-name "~/.authinfo.gpg")
+        smtpmail-stream-type 'starttls
+        smtpmail-smtp-service 587
 
-      ;; Flags als Symbole
-      mu4e-use-fancy-chars 't
-      ;; "-o" wichtig, da sonst das Programm nicht beendet wird und von mu4e
-      ;; nicht -wieder aufgerufen werden kann
-      mu4e-get-mail-command "offlineimap -o -q"
-      mu4e-update-interval 3600
-      mu4e-view-show-images t
-      mu4e-view-show-addresses t
+        mu4e-compose-signature
+        "Kaan Sahin\nInstitut für Informatik\nPädagogische Hochschule Ludwigsburg\nReuteallee 46\nD-71634 Ludwigsburg\n\nTel: +49 (0) 7141/140 - 2894\nRaum: 5.209\nE-Mail: kaan.sahin@ph-ludwigsburg.de\n\nBitte beachten Sie unsere Hinweise, wie wir Ihre personenbezogenen Daten verarbeiten: https://www.ph-ludwigsburg.de/datenschutzerklaerung"
+        smtpmail-local-domain "mail.ph-gw.de"
+        ;; um gesendete buffer zu killen
+        message-kill-buffer-on-exit t
 
-      ;; Bookmarks
-      mu4e-bookmarks
-      `(("flag:unread AND NOT flag:trashed" "Unread messages" ?u)
-        ("maildir:/activemail/INBOX" "Active Group INBOX" ?a)
-        ("maildir:/activemail/eBike-Manager" "eBike-Manager" ?e)
-        ("maildir:/activemail/Sent" "Sent" ?s))
+        ;; Flags als Symbole
+        mu4e-use-fancy-chars 't
+        mu4e-update-interval 3600
+        mu4e-view-show-images t
+        mu4e-view-show-addresses t
 
-      ;; Bei Reply oder Zitat die Zeile anpassen, dass auch Datum/Uhrzeit angezeigt wird
-      message-citation-line-function #'message-insert-formatted-citation-line
-      message-citation-line-format "On %Y-%m-%d at %R %Z, %f wrote:\n"
-      ;; Setze User-Mail-Adresse, um beim Antworten auf Mails die eigene Adresse
-      ;; nicht im CC zu haben
-      mu4e-user-mail-address-list '("kaan.sahin@active-group.de")
-      mu4e-compose-dont-reply-to-self t
+        ;; Bookmarks
+        mu4e-bookmarks
+        `(("flag:unread AND NOT flag:trashed" "Ungelesene Nachrichten" ?u)
+          ("maildir:/ph/Inbox" "INBOX" ?a)
+          ("maildir:/ph/Gesendete Elemente" "Gesendete Elemente" ?s))
 
-      ;;; Format flowed für E-Mails
-      ;; format=flowed gesendete Nachrichten brechen optional nach X Zeichen um
-      ;; Das ist insbesondere für mobile Geräte, wo die standardmäßigen 72 Zeichen
-      ;; pro Zeile zu viel sind, sinnvoll, da sonst doppelt umgebrochen wird.
+        ;; Bei Reply oder Zitat die Zeile anpassen, dass auch Datum/Uhrzeit angezeigt wird
+        message-citation-line-function #'message-insert-formatted-citation-line
+        message-citation-line-format "On %Y-%m-%d at %R %Z, %f wrote:\n"
+        ;; Setze User-Mail-Adresse, um beim Antworten auf Mails die eigene Adresse
+        ;; nicht im CC zu haben
+        mu4e-user-mail-address-list '("kaan.sahin@ph-ludwigsburg.de")
+        mu4e-compose-dont-reply-to-self t
 
-      ;; format=flowed unterstützen nicht alle Programme. Deshalb benutze ich einfach
-      ;; harte Breaks. Ist auf mobilen Geräten nicht so schön, aber who cares. Dafuq
-      use-hard-newlines nil
-      mu4e-compose-format-flowed nil
-      fill-flowed-encode-column 72
+;;; Format flowed für E-Mails
+        ;; format=flowed gesendete Nachrichten brechen optional nach X Zeichen um
+        ;; Das ist insbesondere für mobile Geräte, wo die standardmäßigen 72 Zeichen
+        ;; pro Zeile zu viel sind, sinnvoll, da sonst doppelt umgebrochen wird.
 
-      ;; Falls eml Dateien drin sind die nicht gut lesbar sind (nicht öffnen kann)
-      mu4e-view-use-gnus t
-      mu4e-attachment-dir "/home/kaan/Downloads"
-      )
+        ;; format=flowed unterstützen nicht alle Programme. Deshalb benutze ich einfach
+        ;; harte Breaks. Ist auf mobilen Geräten nicht so schön, aber who cares. Dafuq
+        use-hard-newlines nil
+        mu4e-compose-format-flowed nil
+        fill-flowed-encode-column 72
+
+        ;; Falls eml Dateien drin sind die nicht gut lesbar sind (nicht öffnen kann)
+        mu4e-view-use-gnus t
+        mu4e-attachment-dir "/Users/kaan/Downloads")
   ;; Mit `q' kann man mu4e ganz verlassen (erhält dann aber auch keine Mails mehr).
   ;; Deshalb überschreiben wir es mit `previous-buffer'.
   (eval-after-load 'mu4e
@@ -164,14 +167,15 @@
     '(bind-key "u" #'mu4e-update-mail-and-index mu4e-main-mode-map))
 
   ;; start mu4e
-  (add-to-list 'load-path "/home/kaan/.nix-profile/share/emacs/site-lisp/mu/mu4e/")
+  ;; Hab für den Mac mu installiert mit brew
+  (add-to-list 'load-path "/opt/homebrew/share/emacs/site-lisp/mu/mu4e")
   (require 'mu4e)
   (mu4e t)
 
   ;; Notifications
-  (mu4e-alert-set-default-style 'libnotify)
-  (mu4e-alert-enable-notifications)
-  (mu4e-alert-enable-mode-line-display)
+  ;; (mu4e-alert-set-default-style 'libnotify)
+  ;; (mu4e-alert-enable-notifications)
+  ;; (mu4e-alert-enable-mode-line-display)
 
   ;; Damit kann man Kalendereinladungen per Mail mu4e annehmen
   (require 'mu4e-icalendar)
