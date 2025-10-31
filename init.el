@@ -312,11 +312,7 @@
   ;; org-reveal
   (setq org-reveal-root "file:///home/kaan/tmp/reveal.js")
 
-
-  ;; Damit Racket in org-babel funktioniert
   (add-to-list 'load-path "/home/kaan/.emacs.d/my-elisp-files/")
-  (require 'ob-racket) ;; spits error message "Eager macro-expansion failure: (wrong-number-of-arguments (2 . 2) 0)"
-  (setq org-babel-command:racket "/home/kaan/.nix-profile/bin/racket")
 
   ;; org-babel language support
   (setq org-confirm-babel-evaluate nil)
@@ -329,8 +325,7 @@
        (python . t)
        (latex . t)
        (plantuml . t)
-       (scheme . t)
-       (racket . t))))
+       (scheme . t))))
 
   ;; ---- Ende :init ----
 
