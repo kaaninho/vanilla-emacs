@@ -1,75 +1,34 @@
+;;; -*- lexical-binding: t -*-
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(ansi-color-faces-vector
-   [default default default italic underline success warning error])
- '(ansi-color-names-vector
-   ["#242424" "#e5786d" "#95e454" "#cae682" "#8ac6f2" "#333366" "#ccaa8f" "#f6f3e8"])
- '(custom-safe-themes
-   '("70b596389eac21ab7f6f7eb1cf60f8e60ad7c34ead1f0244a577b1810e87e58c" "a44e2d1636a0114c5e407a748841f6723ed442dc3a0ed086542dc71b92a87aee" "e1f4f0158cd5a01a9d96f1f7cdcca8d6724d7d33267623cc433fe1c196848554" "251ed7ecd97af314cd77b07359a09da12dcd97be35e3ab761d4a92d8d8cf9a71" "8d8207a39e18e2cc95ebddf62f841442d36fcba01a2a9451773d4ed30b632443" "bf948e3f55a8cd1f420373410911d0a50be5a04a8886cabe8d8e471ad8fdba8e" "a7b20039f50e839626f8d6aa96df62afebb56a5bbd1192f557cb2efb5fcfb662" "fe2539ccf78f28c519541e37dc77115c6c7c2efcec18b970b16e4a4d2cd9891d" "1bddd01e6851f5c4336f7d16c56934513d41cc3d0233863760d1798e74809b4b" "42ec9eaa86da5f052feed0e35b578681015b9e21ab7b5377a5a34ea9a0a9e1b9" "4a5aa2ccb3fa837f322276c060ea8a3d10181fecbd1b74cb97df8e191b214313" "246a9596178bb806c5f41e5b571546bb6e0f4bd41a9da0df5dfbca7ec6e2250c" "e19ac4ef0f028f503b1ccafa7c337021834ce0d1a2bca03fcebc1ef635776bea" default))
  '(elpy-rpc-virtualenv-path 'current)
- '(exwm-floating-border-color "#3c454a")
- '(fci-rule-color "#5a6568")
- '(geiser-active-implementations '(chez) t)
- '(geiser-default-implementation 'chez)
- '(highlight-tail-colors ((("#33433c") . 0) (("#2f4148") . 20)))
- '(jdee-db-active-breakpoint-face-colors (cons "#131313" "#ffed72"))
- '(jdee-db-requested-breakpoint-face-colors (cons "#131313" "#a2e57b"))
- '(jdee-db-spec-breakpoint-face-colors (cons "#131313" "#545f62"))
- '(line-number-mode nil)
- '(objed-cursor-color "#ff6d7e")
- '(org-roam-graph-viewer "/usr/bin/google-chrome" t)
  '(package-selected-packages
-   '(magit-todos auctex free-keys latex-mode latex smartparens-elixir smartparens ivy-posframe company-posframe org-roam-ui org-roam envrc polymode lsp-mode hl-todo org scheme-mode geiser geiser-chez racket-mode org-mime default-text-scale defualt-text-scale-mode defualt-text-scale plantuml-mode plantuml diredfl dired-fl zweilight-theme naga-theme haskell-mode haskell counsel-projectile projectile-ripgrep json-mode pkg-info nix-mode yaml-mode yaml wgrep org-re-reveal org-appear lsp-pyright all-the-icons elpy keycast org-superstar doom-themes org-bullets diminish amx smex csv-mode csv mu4e-alert auto-highlight-symbol idle-highlight-mode marginalia projectile clj-refactor cider clojure-mode git-timemachine org-present project counsel swiper lsp-ivy lsp-ui-mode lsp-ui elixir-mode elixir lsp scala lsp-metals sbt-mode org-notify company which-key mu4e rainbow-delimiters paredit markdown-mode))
- '(pdf-view-midnight-colors (cons "#f2fffc" "#273136"))
- '(rustic-ansi-faces
-   ["#273136" "#ff6d7e" "#a2e57b" "#ffed72" "#7cd5f1" "#7cd5f1" "#7cd5f1" "#f2fffc"])
- '(safe-local-variable-values
-   '((geiser-repl-add-project-paths "lib")
-     (eval add-hook 'before-save-hook
-           (lambda nil
-             (cider-format-buffer)
-             (recenter-top-bottom))
-           nil t)
-     (eval add-hook 'before-save-hook 'cider-format-buffer nil t)))
- '(vc-annotate-background "#273136")
- '(vc-annotate-color-map
-   (list
-    (cons 20 "#a2e57b")
-    (cons 40 "#c1e778")
-    (cons 60 "#e0ea75")
-    (cons 80 "#ffed72")
-    (cons 100 "#ffd971")
-    (cons 120 "#ffc570")
-    (cons 140 "#ffb270")
-    (cons 160 "#d3bd9b")
-    (cons 180 "#a7c9c6")
-    (cons 200 "#7cd5f1")
-    (cons 220 "#a7b2ca")
-    (cons 240 "#d38fa4")
-    (cons 260 "#ff6d7e")
-    (cons 280 "#d46977")
-    (cons 300 "#a96670")
-    (cons 320 "#7e6269")
-    (cons 340 "#5a6568")
-    (cons 360 "#5a6568")))
- '(vc-annotate-very-old-color nil)
- '(warning-suppress-types '((comp))))
+   '(all-the-icons amx auto-highlight-symbol clj-refactor company
+                   counsel-projectile csv-mode diminish diredfl
+                   doom-themes elixir-mode envrc flycheck
+                   git-timemachine gptel haskell-mode helpful
+                   ivy-posframe json-mode keycast lsp-ivy lsp-metals
+                   lsp-pyright lsp-ui magit-todos marginalia nix-mode
+                   org-appear org-mime org-present org-re-reveal
+                   org-roam-ui org-superstar plantuml-mode polymode
+                   projectile-ripgrep racket-mode sbt-mode smartparens
+                   wgrep yaml-mode)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(org-document-info ((t (:inherit default :weight bold :foreground "black" :font "DejaVu Sans Mono" :height 1.0 :underline nil))))
- '(org-document-title ((t (:inherit default :weight bold :foreground "black" :font "DejaVu Sans Mono" :height 1.25 :underline nil))))
- '(org-level-1 ((t (:inherit default :weight bold :foreground "black" :font "NotoSerif" :height 1.5))))
- '(org-level-2 ((t (:inherit default :weight bold :foreground "black" :font "NotoSerif" :height 1.3))))
- '(org-level-3 ((t (:inherit default :weight bold :foreground "black" :font "NotoSerif" :height 1.15))))
- '(org-level-4 ((t (:inherit default :weight bold :foreground "black" :font "NotoSerif" :height 1.1))))
- '(org-level-5 ((t (:inherit default :weight bold :foreground "black" :font "NotoSerif"))))
- '(org-level-6 ((t (:inherit default :weight bold :foreground "black" :font "NotoSerif"))))
- '(org-level-7 ((t (:inherit default :weight bold :foreground "black" :font "NotoSerif"))))
- '(org-level-8 ((t (:inherit default :weight bold :foreground "black" :font "NotoSerif"))))
- '(org-warning ((t (:inherit default :weight bold :foreground "#FFAAAA" :font "DejaVu Sans Mono" :height 1.05 :underline nil)))))
+ '(org-document-info ((t (:inherit default :weight bold :foreground "#f2fffc" :height 1.0 :underline nil))))
+ '(org-document-title ((t (:inherit default :weight bold :foreground "#f2fffc" :height 1.25 :underline nil))))
+ '(org-level-1 ((t (:inherit default :weight bold :foreground "#f2fffc" :height 1.5))))
+ '(org-level-2 ((t (:inherit default :weight bold :foreground "#f2fffc" :height 1.3))))
+ '(org-level-3 ((t (:inherit default :weight bold :foreground "#f2fffc" :height 1.15))))
+ '(org-level-4 ((t (:inherit default :weight bold :foreground "#f2fffc" :height 1.1))))
+ '(org-level-5 ((t (:inherit default :weight bold :foreground "#f2fffc"))))
+ '(org-level-6 ((t (:inherit default :weight bold :foreground "#f2fffc"))))
+ '(org-level-7 ((t (:inherit default :weight bold :foreground "#f2fffc"))))
+ '(org-level-8 ((t (:inherit default :weight bold :foreground "#f2fffc"))))
+ '(org-warning ((t (:inherit default :weight bold :foreground "#FFAAAA" :height 1.05 :underline nil)))))

@@ -527,6 +527,60 @@
   (doom-themes-org-config))
 (package-refresh-contents)
 
+;; GPTEL
+
+(defun ollama-backend () (gptel-make-ollama "Ollama" :host "localhost:11434" :stream t :models '(llama3)))
+(defun openai-backend () (gptel-make-openai "OpenAI"
+                            :key "empty1"
+                            :models '(gpt-4.1-nano gpt-3.5-turbo gpt-4o) :stream t))
+(use-package gptel
+  :ensure t
+  :commands (gptel gptel-send)
+  :init
+  (global-set-key (kbd "C-c g") 'gptel)
+  (global-set-key (kbd "C-c s") 'gptel-send)
+  :config
+  (defun my/ollama-running-p ()
+    "Prüft, ob Ollama-Server auf localhost:11434 erreichbar ist."
+    (condition-case nil
+        (with-temp-buffer
+          (url-insert-file-contents "http://localhost:11434/api/tags")
+          t)
+      (error nil)))
+
+  (setq gptel-backend
+        (if (my/ollama-running-p)
+            ;; Lokales Modell, wenn Ollama läuft
+            (progn
+              (message "Ollama erkannt – nutze lokales Modell.")
+              (gptel-make-ollama
+                  "Ollama"
+                :host "localhost:11434"
+                :stream t
+                :models '(llama3)))
+          ;; Fallback auf OpenAI, wenn Ollama nicht läuft
+          (progn
+            (message "Ollama nicht gefunden – nutze OpenAI-API.")
+            (gptel-make-openai
+                "OpenAI"
+              :key ""
+              :models '(gpt-3.5-turbo gpt-4o)
+              :stream t))))
+
+  ;; Standardmodell
+  (setq gptel-model 'llama3))
+
+(defun my/ollama-status ()
+  "Prüft, ob gptel aktuell mit Ollama verbunden ist und gibt eine Testantwort aus."
+  (interactive)
+  (require 'gptel)
+  (gptel-request
+   "Sag einfach 'Ollama läuft' wenn du mich hörst."
+   :callback (lambda (response info)
+               (message "Backend: %s → Antwort: %s"
+                        (gptel-backend-name (plist-get info :backend))
+                        (string-trim (or response "Keine Antwort."))))))
+
 ;; Hiermit werden Tastenanschläge und -Kombinationen in der Mode-Line
 ;; angezeigt, gut für Screencasting
 ;; Zudem wird bei Funktionen der Funktionsname nebendran angezeigt
