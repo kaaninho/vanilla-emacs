@@ -1256,29 +1256,12 @@
 ;; (setq history-length 150)
 ;; (setq extended-command-history nil)  ; hiermit manuell die ganze Liste löschen
 
-;;; Bug, still there?
-;;;
-;; This is a bug. The variable on the left side is old but still used, but
-;; cannot be found anymore.
-;; TODO: Delete at next update!
-;; (setq org-priority-highest org-highest-priority)
-;; (setq org-priority-lowest org-lowest-priority)
-
 ;;; org-refile funktioniert nicht wegen
 ;;;
 ;; "Invalid function: org-preserve-local-variables"
 ;; Dann: lösche kompilierte Dateien und rekompiliere:
 ;; `cd ~/.emacs.d && find . -name *.elc -print0 | xargs -0 rm`
 ;; Danach `M-x spacemacs/recompile-elpa`
-
-;;; Alte Netzlive Elixir Einstellungen
-;;;
-;; (with-eval-after-load 'lsp-mode
-;;   (setq lsp-restart 'auto-restart)
-;;   (setq lsp-file-watch-threshold 25000)
-;;   (push "[/\\]docker/temp$" lsp-file-watch-ignored)
-;;   (push "temp$" lsp-file-watch-ignored))
-
 
 ;;;; TODO
 
