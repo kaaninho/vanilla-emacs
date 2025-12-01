@@ -1212,6 +1212,12 @@
 (set-face-attribute 'region nil :background "#FD971F" :inherit 'highlight)
 (set-face-attribute 'ivy-current-match nil :background "#FD971F" :inherit 'highlight)
 
+(dolist (face '(default
+                mode-line mode-line-inactive
+                tab-bar tab-bar-tab tab-bar-tab-inactive
+                line-number line-number-current-line))
+  (set-face-attribute face nil :family "Monaco"))
+
 ;;; line numbers
 (global-display-line-numbers-mode)
 
