@@ -1219,7 +1219,7 @@
                 mode-line mode-line-inactive
                 tab-bar tab-bar-tab tab-bar-tab-inactive
                 line-number line-number-current-line))
-  (set-face-attribute face nil :family "Monaco"))
+  (set-face-attribute face nil :family "Hack"))
 
 ;;; line numbers
 (global-display-line-numbers-mode)
