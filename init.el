@@ -560,50 +560,62 @@
   (doom-themes-treemacs-config)
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
-(package-refresh-contents)
 
 ;; GPTEL
 
 (defun ollama-backend () (gptel-make-ollama "Ollama" :host "localhost:11434" :stream t :models '(llama3)))
 (defun openai-backend () (gptel-make-openai "OpenAI"
-                            :key "empty1"
+                            :key ""
                             :models '(gpt-4.1-nano gpt-3.5-turbo gpt-4o) :stream t))
 (use-package gptel
   :ensure t
   :commands (gptel gptel-send)
-  :init
-  (global-set-key (kbd "C-c g") 'gptel)
-  (global-set-key (kbd "C-c s") 'gptel-send)
+  :bind (("C-c b" . my/gptel-switch-backend)
+         ("C-c g" . gptel)
+         ("C-c s" . gptel-send))
   :config
-  (defun my/ollama-running-p ()
-    "Prüft, ob Ollama-Server auf localhost:11434 erreichbar ist."
-    (condition-case nil
-        (with-temp-buffer
-          (url-insert-file-contents "http://localhost:11434/api/tags")
-          t)
-      (error nil)))
-
-  (setq gptel-backend
+  ;; Standardmodell
+  (setq gptel-model 'llama3
+        gptel-backend
         (if (my/ollama-running-p)
             ;; Lokales Modell, wenn Ollama läuft
             (progn
               (message "Ollama erkannt – nutze lokales Modell.")
-              (gptel-make-ollama
-                  "Ollama"
-                :host "localhost:11434"
-                :stream t
-                :models '(llama3)))
+              (ollama-backend))
           ;; Fallback auf OpenAI, wenn Ollama nicht läuft
           (progn
             (message "Ollama nicht gefunden – nutze OpenAI-API.")
-            (gptel-make-openai
-                "OpenAI"
-              :key ""
-              :models '(gpt-3.5-turbo gpt-4o)
-              :stream t))))
+            (openai-backend))))
+  
+  (defun my/ollama-running-p ()
+    "Prüft, ob Ollama-Server auf localhost:11434 erreichbar ist."
+    (interactive)
+    (condition-case nil
+        (with-temp-buffer
+          (url-insert-file-contents "http://localhost:11434/api/tags")
+          (message "Ollama läuft")
+          t)
+      (message "ERROR Ollama läuft nicht")
+      (error nil)))
 
-  ;; Standardmodell
-  (setq gptel-model 'llama3))
+  (defun my/gptel-switch-backend ()
+    "Wechselt zwischen lokalem Ollama und OpenAI im aktuellen gptel-Chat."
+    (interactive)
+    (require 'gptel)
+    (if (equal (gptel-backend-name gptel-backend) "Ollama")
+        ;; Wechsel zu OpenAI
+        (progn
+          (setq gptel-backend
+                (openai-backend))
+          (setq gptel-model 'gpt-4.1-nano)
+          (message "☁️ Backend gewechselt zu OpenAI (%s)" gptel-model))
+      ;; Wechsel zu Ollama
+      (if (my/ollama-running-p)
+          (progn
+            (setq gptel-backend (ollama-backend)
+                  gptel-model 'llama3)
+            (message "🦙 Backend gewechselt zu Ollama (%s)" gptel-model))
+        (message "🛑 Ollama läuft gerade nicht! Fallback auf OpenAI.")))))
 
 (defun my/ollama-status ()
   "Prüft, ob gptel aktuell mit Ollama verbunden ist und gibt eine Testantwort aus."
