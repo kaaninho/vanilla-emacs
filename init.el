@@ -1007,6 +1007,14 @@
   :init
   (envrc-global-mode))
 
+(use-package default-text-scale
+  :defer t
+  :init
+  (default-text-scale-mode)
+  (let ((scale 10)) ;; 0 = Standard, 1 = etwas größer, 2 = noch größer, usw.
+    (dotimes (_ scale)
+      (default-text-scale-increase))))
+
 (use-package emacs
   :init
 
