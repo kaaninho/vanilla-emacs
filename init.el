@@ -769,7 +769,7 @@
          ;; Clojure add define-record-type Tipperleichterung
          ;; Record-Tipperleichterung
          (clojure-mode . (lambda ()
-                           (load-my-elisp-file "insert-define-record-type.el")
+                           (load-file "~/.emacs.d/my-elisp-files/insert-define-record-type.el")
                            (bind-key (kbd "C-c C-r C-r") 'insert-define-record-type)))
 
          ;; Do this with dir-locals
@@ -854,8 +854,6 @@
     :hostmode 'poly-elixir-hostmode
     :innermodes '(poly-liveview-expr-elixir-innermode))
   (setq web-mode-engines-alist '(("elixir" . "\\.ex\\'"))))
-
-
 
 (use-package lsp-mode
   :defer t
@@ -994,18 +992,6 @@
 ;;           magit-previous-line
 ;;           ivy-previous-line)))
 
-(use-package python
-  :defer t
-  :init
-  (add-to-list 'process-coding-system-alist '("python" . (utf-8 . utf-8)))
-  (custom-set-variables
-  '(elpy-rpc-virtualenv-path (quote current))
-  ))
-
-(use-package lsp-pyright
-  :hook (python-mode . (lambda ()
-                          (require 'lsp-pyright)
-                          (lsp))))  ; or lsp-deferred
 
 (use-package haskell-mode
   :defer t)
@@ -1046,7 +1032,7 @@
 ;;;; ---- Global Key Bindings ----
 
 ;;; Protokoll-Template
-(load-my-elisp-file "protokoll-template.el")
+(load-file "~/.emacs.d/my-elisp-files/protokoll-template.el")
 (bind-key "C-x p" #'protocol-template)
 
 (bind-key "C-<tab>" #'other-window)
@@ -1086,13 +1072,17 @@
 (bind-key "M-p" #'scroll-down-command)
 (bind-key "M-n" #'scroll-up-command)
 
-;; Timeclock Erweiterung
+;;; Timeclock
 (bind-key "C-x t i" #'timeclock-in)
 (bind-key "C-x t o" #'timeclock-out)
 (bind-key "C-x t c" #'timeclock-change)
 
+;; overwrite bc of other path
+(setq timeclock-file "~/.emacs.d/timelog")
+
 ;; Für mehr Timeclock-Funktionalität
-(load-my-elisp-file "kaan-timeclock.el")
+(use-package dash) ; wird von kaan-timeclock.el gebraucht
+(load-file "~/.emacs.d/my-elisp-files/kaan-timeclock.el")
 (bind-key "C-x t s" #'timeclock-sum-all-hours)
 (bind-key "C-x t t" #'timeclock-hours-worked-today)
 (bind-key "C-x t e" #'timeclock-hours-to-days-end)
@@ -1101,7 +1091,7 @@
 (bind-key "C-x t f" #'timeclock-open-timelog-file)
 
 ;; Um an Timeclock einen Kommentar zu hängen
-(load-my-elisp-file "mikes-timeclock.el")
+(load-file "~/.emacs.d/my-elisp-files/mikes-timeclock.el")
 (bind-key "C-x t d" #'timeclock-provide-description)
 
 ;; Ergänzung zu `other-window'
@@ -1116,7 +1106,6 @@
 ;; Damit kill-buffer ohne Confirmation direkt den Buffer killt:
 (bind-key "C-x k" #'kill-current-buffer)
 
-(bind-key "C-ö" #'join-line)
 ;; Damit kill-buffer ohne Confirmation direkt den Buffer killt:
 (bind-key "C-x k" #'kill-current-buffer)
 (bind-key "C-q" #'previous-buffer)
@@ -1138,8 +1127,6 @@
 ;; Scrolling
 (setq scroll-step            1
       scroll-conservatively  10000)
-
-(set-face-attribute 'default nil :height 120)
 
 ;; Use spaces, not tabs, for indentation.
 (setq-default indent-tabs-mode nil)
@@ -1175,7 +1162,7 @@
 (setq fast-but-imprecise-scrolling t)
 
 ;;; Backup Files:
-(load-my-elisp-file "backup.el")
+(load-file "~/.emacs.d/my-elisp-files/backup.el")
 
 ;;; Cursor goes to Help buffer
 (setq help-window-select t)
