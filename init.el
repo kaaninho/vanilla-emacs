@@ -1034,14 +1034,33 @@
   (winner-mode)
 
   ;; I have to do this, else Elixir mode is selected with Latex files
-  ;;; Latex
   (add-to-list 'auto-mode-alist '("\\.tex\\'" . latex-mode))
+
+  ;; Tree-sitter
+  ;; Not sure if I want to continue to use it
+  (setq major-mode-remap-alist
+        '((python-mode   . python-ts-mode)
+          (c-mode        . c-ts-mode)
+          (c++-mode      . c++-ts-mode)
+          (js-mode       . js-ts-mode)
+          (json-mode     . json-ts-mode)
+          (css-mode      . css-ts-mode)
+          (html-mode     . html-ts-mode)
+          (bash-mode     . bash-ts-mode)
+          (sh-mode       . bash-ts-mode)
+          (yaml-mode     . yaml-ts-mode)
+          (toml-mode     . toml-ts-mode)))
 
   :bind (:map global-map
               :prefix-map my-prefix-map
               :prefix "C-j"
               ("C-k" . comment-or-uncomment-region)
               ("g" . counsel-rg)))
+
+(add-to-list
+ 'treesit-language-source-alist
+ '(javascript . ("https://github.com/tree-sitter/tree-sitter-javascript"
+            "v0.23.0")))
 
 ;;;; ---- Global Key Bindings ----
 
