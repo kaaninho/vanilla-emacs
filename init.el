@@ -686,8 +686,6 @@
   (advice-add 'pixel-scroll-precision :before #'ellama-disable-scroll)
   (advice-add 'end-of-buffer :after #'ellama-enable-scroll))
 
->>>>>>> c7f315d (Add copilot)
-
 (defun my/ollama-status ()
   "Prüft, ob gptel aktuell mit Ollama verbunden ist und gibt eine Testantwort aus."
   (interactive)
