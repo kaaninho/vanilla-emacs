@@ -1233,10 +1233,11 @@
 ;;; If a file changes on disk, revert buffer automatically
 (global-auto-revert-mode)
 
-
 ;;; Start server.
 (require 'server)
+(setq server-socket-dir (expand-file-name "~/.emacs.d/server"))
 (unless (server-running-p)
+  (message "Start Server")
   (server-start))
 
 ;;;; ---- Tips, Tricks and Workarounds ----
