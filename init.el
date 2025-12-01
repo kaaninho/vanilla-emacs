@@ -69,28 +69,27 @@
   :init
   ;; Delete key binding "C-x m" for more usage below
   (unbind-key "C-x m")
-  (setq mu4e-get-mail-command "mbsync PHL"
-        mu4e-mu-binary "/opt/homebrew/bin/mu"
+  (setq
+   ;; Mail Receive
+   mu4e-get-mail-command "mbsync PHL"
+   mu4e-mu-binary "/opt/homebrew/bin/mu"
 
-        mu4e-sent-folder "/ph/Sent"
-        ;; mu4e-sent-messages-behavior 'delete ;; Unsure how this should be configured
-        mu4e-trash-folder "/ph/Gelöschte Elemente"
-        mu4e-drafts-folder "/ph/Entwürfe"
-        user-mail-address "kaan.sahin@ph-ludwigsburg.de"
-        smtpmail-smtp-user "ph\\daj377"
-        smtpmail-smtp-server "mail.ph-gw.de"
-        smtpmail-auth-supported '(plain login)
-        ;; smtpmail-debug-info t
-        ;; smtpmail-debug-verb t
-        smtpmail-auth-credentials (expand-file-name "~/.authinfo.gpg")
-        smtpmail-stream-type 'starttls
-        smtpmail-smtp-service 587
+   mu4e-sent-folder "/ph/Gesendete Elemente"
+   ;; mu4e-sent-messages-behavior 'delete ;; Unsure how this should be configured
+   mu4e-trash-folder "/ph/Gelöschte Elemente"
+   mu4e-drafts-folder "/ph/Entwürfe"
+   user-mail-address "kaan.sahin@ph-ludwigsburg.de"
+   user-full-name "Sahin, Kaan"
 
-        mu4e-compose-signature
-        "Kaan Sahin\nInstitut für Informatik\nPädagogische Hochschule Ludwigsburg\nReuteallee 46\nD-71634 Ludwigsburg\n\nTel: +49 (0) 7141/140 - 2894\nRaum: 5.209\nE-Mail: kaan.sahin@ph-ludwigsburg.de\n\nBitte beachten Sie unsere Hinweise, wie wir Ihre personenbezogenen Daten verarbeiten: https://www.ph-ludwigsburg.de/datenschutzerklaerung"
-        smtpmail-local-domain "mail.ph-gw.de"
-        ;; um gesendete buffer zu killen
-        message-kill-buffer-on-exit t
+   ;; Mail Send
+   message-send-mail-function 'message-send-mail-with-sendmail
+   sendmail-program "msmtp"
+   
+   mu4e-compose-signature
+   "Kaan Sahin\nInstitut für Informatik\nPädagogische Hochschule Ludwigsburg\nReuteallee 46\nD-71634 Ludwigsburg\n\nTel: +49 (0) 7141/140 - 2894\nRaum: 5.209\nE-Mail: kaan.sahin@ph-ludwigsburg.de"
+   smtpmail-local-domain "mail.ph-gw.de"
+   ;; um gesendete buffer zu killen
+   message-kill-buffer-on-exit t
 
         ;; Flags als Symbole
         mu4e-use-fancy-chars 't
