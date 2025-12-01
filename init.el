@@ -1,8 +1,7 @@
-;;;; Emacs Config File
-;;;; Author: Kaan Sahin
+;;; init.el --- Emacs Config File -*- lexical-binding: t -*-
+;; Author: Kaan Sahin
 
 ;;; Package management
-
 (require 'package)
 (package-initialize)
 
@@ -903,6 +902,11 @@
 ;; (use-package dap-LANGUAGE) to load the dap adapter for your language
 
 (use-package flycheck
+  :config
+  ;; Weil es sonst in dieser und jeder anderen Datei oben in der
+  ;; ersten Zeile meckert ("You should have a section marked ";;;
+  ;; Commentary:"")
+  (setq-default flycheck-disabled-checkers '(emacs-lisp-checkdoc))
   :init (global-flycheck-mode))
 
 ;;; Racket
