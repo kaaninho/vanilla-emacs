@@ -91,40 +91,48 @@
    ;; um gesendete buffer zu killen
    message-kill-buffer-on-exit t
 
-        ;; Flags als Symbole
-        mu4e-use-fancy-chars 't
-        mu4e-update-interval 3600
-        mu4e-view-show-images t
-        mu4e-view-show-addresses t
+   ;; Flags als Symbole
+   mu4e-use-fancy-chars 't
+   mu4e-update-hourly-p t
+   mu4e-update-interval 3600
+   mu4e-view-show-images t
+   mu4e-view-show-addresses t
+   mu4e-confirm-quit nil
 
-        ;; Bookmarks
-        mu4e-bookmarks
-        `(("flag:unread AND NOT flag:trashed" "Ungelesene Nachrichten" ?u)
-          ("maildir:/ph/Inbox" "INBOX" ?a)
-          ("maildir:/ph/Gesendete Elemente" "Gesendete Elemente" ?s))
+   ;; Bookmarks
+   mu4e-bookmarks
+   `(("flag:unread AND NOT flag:trashed" "Ungelesene Nachrichten" ?u)
+     ("maildir:/ph/Inbox" "INBOX" ?a)
+     ("maildir:/ph/Gesendete Elemente" "Gesendete Elemente" ?s))
 
-        ;; Bei Reply oder Zitat die Zeile anpassen, dass auch Datum/Uhrzeit angezeigt wird
-        message-citation-line-function #'message-insert-formatted-citation-line
-        message-citation-line-format "On %Y-%m-%d at %R %Z, %f wrote:\n"
-        ;; Setze User-Mail-Adresse, um beim Antworten auf Mails die eigene Adresse
-        ;; nicht im CC zu haben
-        mu4e-user-mail-address-list '("kaan.sahin@ph-ludwigsburg.de")
-        mu4e-compose-dont-reply-to-self t
+   ;; Bei Reply oder Zitat die Zeile anpassen, dass auch Datum/Uhrzeit angezeigt wird
+   message-citation-line-function #'message-insert-formatted-citation-line
+   message-citation-line-format "On %Y-%m-%d at %R %Z, %f wrote:\n"
+   ;; Setze User-Mail-Adresse, um beim Antworten auf Mails die eigene Adresse
+   ;; nicht im CC zu haben
+   mu4e-user-mail-address-list '("kaan.sahin@ph-ludwigsburg.de")
+   mu4e-compose-dont-reply-to-self t
 
 ;;; Format flowed für E-Mails
-        ;; format=flowed gesendete Nachrichten brechen optional nach X Zeichen um
-        ;; Das ist insbesondere für mobile Geräte, wo die standardmäßigen 72 Zeichen
-        ;; pro Zeile zu viel sind, sinnvoll, da sonst doppelt umgebrochen wird.
+   ;; format=flowed gesendete Nachrichten brechen optional nach X Zeichen um
+   ;; Das ist insbesondere für mobile Geräte, wo die standardmäßigen 72 Zeichen
+   ;; pro Zeile zu viel sind, sinnvoll, da sonst doppelt umgebrochen wird.
 
-        ;; format=flowed unterstützen nicht alle Programme. Deshalb benutze ich einfach
-        ;; harte Breaks. Ist auf mobilen Geräten nicht so schön, aber who cares. Dafuq
-        use-hard-newlines nil
-        mu4e-compose-format-flowed nil
-        fill-flowed-encode-column 72
+   ;; format=flowed unterstützen nicht alle Programme. Deshalb benutze ich einfach
+   ;; harte Breaks. Ist auf mobilen Geräten nicht so schön, aber who cares. Dafuq
+   use-hard-newlines nil
+   mu4e-compose-format-flowed nil
+   fill-flowed-encode-column 72
 
-        ;; Falls eml Dateien drin sind die nicht gut lesbar sind (nicht öffnen kann)
-        mu4e-view-use-gnus t
-        mu4e-attachment-dir "/Users/kaan/Downloads")
+   ;; Falls eml Dateien drin sind die nicht gut lesbar sind (nicht öffnen kann)
+   mu4e-view-use-gnus t
+   mu4e-attachment-dir "/Users/kaan/Downloads"
+
+   mu4e-headers-fields  '((:human-date . 12)
+                          (:flags . 6)
+                          (:from-or-to . 25)
+                          (:subject . nil)))
+  
   ;; Mit `q' kann man mu4e ganz verlassen (erhält dann aber auch keine Mails mehr).
   ;; Deshalb überschreiben wir es mit `previous-buffer'.
   (eval-after-load 'mu4e
@@ -142,6 +150,26 @@
   (require 'mu4e)
   (mu4e t)
 
+  (defun mu4e-toggle-update-frequency ()
+    (interactive)
+    (if mu4e-update-hourly-p
+        (progn
+          (setq mu4e-update-interval 10)
+          (setq mu4e-update-hourly-p nil)
+          (mu4e-quit)
+          (sit-for 1)
+          (message "[mu4e] Update every 10 SECONDS")
+          (sit-for 1)
+          (mu4e t))
+      (progn
+        (setq mu4e-update-interval 3600)
+        (setq mu4e-update-hourly-p t)
+        (mu4e-quit)
+        (sit-for 1)
+        (message "[mu4e] Update every HOUR")
+        (sit-for 1)
+        (mu4e t))))
+  
   ;; Notifications
   ;; (mu4e-alert-set-default-style 'libnotify)
   ;; (mu4e-alert-enable-notifications)
@@ -153,7 +181,8 @@
 
   :bind (("C-x m m" . mu4e)
          ;; Global Key Binding für Update mails
-         ("C-x m u" . mu4e-update-mail-and-index)))
+         ("C-x m u" . mu4e-update-mail-and-index)
+         ("C-x m t" . mu4e-toggle-update-frequency)))
 
 ;; Damit kann man Mails als HTML versenden einfach im
 ;; compse-mail-buffer dann `org-mime-htmlize' aufrufen.
