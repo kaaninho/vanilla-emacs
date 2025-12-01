@@ -1209,8 +1209,11 @@
 
 ;;; Set Custom face
 ;; set region highlighting more visible (orange)
-(set-face-attribute 'region nil :background "#FD971F" :inherit 'highlight)
-(set-face-attribute 'ivy-current-match nil :background "#FD971F" :inherit 'highlight)
+(set-face-attribute 'region nil :background "#D58A43" :foreground "#202020"
+                    :inherit 'highlight :weight 'normal :slant 'normal)
+
+(set-face-attribute 'ivy-current-match nil :background "#D58A43" :foreground "#202020"
+                    :inherit 'highlight :weight 'normal :slant 'normal)
 
 (dolist (face '(default
                 mode-line mode-line-inactive
