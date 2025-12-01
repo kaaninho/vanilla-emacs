@@ -617,6 +617,77 @@
             (message "🦙 Backend gewechselt zu Ollama (%s)" gptel-model))
         (message "🛑 Ollama läuft gerade nicht! Fallback auf OpenAI.")))))
 
+(use-package copilot
+  :config
+  (setq copilot-idle-delay 3
+        copilot-enable-display-predicates
+        '(copilot-display-in-comments
+          copilot-display-in-code
+          copilot-display-in-strings))
+  :ensure t
+  ;; I don't want to have copilot everywhere
+  ;; :hook
+  ;; (prog-mode . copilot-mode)
+  :bind (:map copilot-completion-map
+              ("<tab>" . copilot-accept-completion)
+              ("TAB" . copilot-accept-completion)
+              ("C-TAB" . copilot-next-completion)
+              ("C-<tab>" . copilot-next-completion)))
+
+;; Ellama-Konfiguration mit use-package
+(use-package ellama
+  :ensure t
+  :bind
+  ;; Ellama-Menü starten
+  ("C-c e" . ellama)
+  :init
+  ;; Automatisches Scrollen im Chat-Puffer
+  (setq ellama-auto-scroll t)
+  ;; Sprache Deutsch (optional)
+  (setq ellama-language "German")
+  ;; Provider mit llama3:latest konfigurieren
+  (require 'llm-ollama)
+  (setq ellama-provider
+        (make-llm-ollama
+         :chat-model "llama3:latest"
+         :embedding-model "llama3:latest"
+         :default-chat-non-standard-params
+         '(("num_ctx" . 8192))))
+  ;; Optional: Zusammenfassung, Code, Übersetzung alles mit demselben Modell
+  (setq ellama-summarization-provider
+        (make-llm-ollama
+         :chat-model "llama3:latest"
+         :embedding-model "llama3:latest"
+         :default-chat-non-standard-params '(("num_ctx" . 8192))))
+  (setq ellama-coding-provider
+        (make-llm-ollama
+         :chat-model "llama3:latest"
+         :embedding-model "llama3:latest"
+         :default-chat-non-standard-params '(("num_ctx" . 8192))))
+  (setq ellama-translation-provider
+        (make-llm-ollama
+         :chat-model "llama3:latest"
+         :embedding-model "llama3:latest"
+         :default-chat-non-standard-params '(("num_ctx" . 8192))))
+  ;; Session-Namen automatisch generieren
+  (setq ellama-naming-provider
+        (make-llm-ollama
+         :chat-model "llama3:latest"
+         :embedding-model "llama3:latest"))
+  (setq ellama-naming-scheme 'ellama-generate-name-by-llm)
+  :config
+  ;; Kontext- und Session-Anzeige aktivieren
+  (ellama-context-header-line-global-mode +1)
+  (ellama-session-header-line-global-mode +1)
+  ;; Chat-Buffer Darstellung
+  (setq ellama-chat-display-action-function #'display-buffer-full-frame)
+  (setq ellama-instant-display-action-function #'display-buffer-at-bottom)
+  ;; Scroll-Verhalten für Streaming optimieren
+  (advice-add 'pixel-scroll-precision :before #'ellama-disable-scroll)
+  (advice-add 'end-of-buffer :after #'ellama-enable-scroll))
+
+>>>>>>> c7f315d (Add copilot)
+
 (defun my/ollama-status ()
   "Prüft, ob gptel aktuell mit Ollama verbunden ist und gibt eine Testantwort aus."
   (interactive)
