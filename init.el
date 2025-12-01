@@ -1018,6 +1018,12 @@
 (use-package emacs
   :init
 
+  (setq initial-frame-alist
+        '((top . 0)             ;; Oben am Bildschirm
+          (left . 0)            ;; Links am Bildschirm
+          (width . 100)         ;; Breite in Zeichen
+          (height . 50)))       ;; Höhe in Zeilen
+
   ;; abbrev
   (setq-default abbrev-mode t)
   (setq save-abbrevs 'silently)
