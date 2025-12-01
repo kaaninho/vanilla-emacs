@@ -6,16 +6,24 @@
  ;; If there is more than one, they won't work right.
  '(elpy-rpc-virtualenv-path 'current)
  '(package-selected-packages
-   '(all-the-icons amx auto-highlight-symbol clj-refactor company
-                   counsel-projectile csv-mode diminish diredfl
-                   doom-themes elixir-mode envrc flycheck
-                   git-timemachine gptel haskell-mode helpful
-                   ivy-posframe json-mode keycast lsp-ivy lsp-metals
-                   lsp-pyright lsp-ui magit-todos marginalia nix-mode
-                   org-appear org-mime org-present org-re-reveal
-                   org-roam-ui org-superstar plantuml-mode polymode
-                   projectile-ripgrep racket-mode sbt-mode smartparens
-                   wgrep yaml-mode)))
+   '(all-the-icons amx auto-highlight-symbol clj-refactor company copilot
+                   counsel-projectile csv-mode default-text-scale
+                   diminish diredfl doom-themes elixir-mode ellama
+                   elpy envrc flycheck git-timemachine gptel
+                   haskell-mode helpful ivy-posframe json-mode keycast
+                   lsp-ivy lsp-metals lsp-pyright lsp-ui magit-todos
+                   marginalia nerd-icons nix-mode obsidian org-appear
+                   org-mime org-present org-re-reveal org-roam-ui
+                   org-superstar plantuml-mode polymode prettier
+                   projectile-ripgrep python-black racket-mode
+                   sbt-mode smartparens treesit treesit-auto
+                   typescript-mode wgrep yaml-mode))
+ '(safe-local-variable-values
+   '((eval progn
+           (setq python-shell-interpreter
+                 "/Users/kaan/Library/Caches/pypoetry/virtualenvs/lesekobold-3G8nTUWm-py3.14/bin/python")
+           (setq lsp-pyright-python-executable-cmd
+                 "/Users/kaan/Library/Caches/pypoetry/virtualenvs/lesekobold-3G8nTUWm-py3.14/bin/python")))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
