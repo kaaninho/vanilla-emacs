@@ -1170,6 +1170,8 @@
 
 ;; Write auto-saves and backups to separate directory.
 (make-directory "~/.tmp/emacs/auto-save/" t)
+;; Really save all buffers every minute
+(run-at-time nil 60 'save-some-buffers t)
 (setq auto-save-file-name-transforms '((".*" "~/.tmp/emacs/auto-save/" t)))
 (setq backup-directory-alist '(("." . "~/.tmp/emacs/backup/")))
 
