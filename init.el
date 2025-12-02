@@ -451,7 +451,8 @@
   (interactive)
   (obsidian-daily-note)
   (obsidian-markdown-mode)
-  (insert "\n\n# " (format-time-string "%H:%M:%S\n\n"))
+  (goto-line 999999)
+  (insert "# " (format-time-string "%H:%M:%S\n\n"))
   (insert "- [ ] ")
   (save-buffer))
 
@@ -461,7 +462,7 @@
   :config
   (setq obsidian-directory "/Users/kaan/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianOnIcloud"
         obsidian-daily-notes-directory "Daily"
-        obsidian-inbox-directory "INBOX")
+        obsidian-inbox-directory "⭐INBOX")
 
   :bind (("C-c c" . obsidian-capture)
          ("C-c d" . obsidian-daily-note-with-time)
@@ -1158,7 +1159,6 @@
 (menu-bar-mode 0)
 (tool-bar-mode 0)
 (scroll-bar-mode 0)
-(setq inhibit-startup-screen nil)
 (column-number-mode)
 
 ;; Scrolling
