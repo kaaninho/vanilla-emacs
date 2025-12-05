@@ -73,6 +73,7 @@
    mu4e-get-mail-command "mbsync PHL"
    mu4e-mu-binary "/opt/homebrew/bin/mu"
 
+   mu4e-maildir "/Users/kaan/Maildir"
    mu4e-sent-folder "/ph/Gesendete Elemente"
    ;; mu4e-sent-messages-behavior 'delete ;; Unsure how this should be configured
    mu4e-trash-folder "/ph/Gelöschte Elemente"
@@ -80,6 +81,13 @@
    user-mail-address "kaan.sahin@ph-ludwigsburg.de"
    user-full-name "Sahin, Kaan"
 
+   ;; this works better with mbsync
+   ;; (with offlineimap it works better when it's nil)
+   mu4e-change-filenames-when-moving t
+
+   ;; Dont "delete" delete files
+   mu4e-trash-without-flag t
+   
    ;; Mail Send
    message-send-mail-function 'message-send-mail-with-sendmail
    sendmail-program "msmtp"
@@ -101,7 +109,7 @@
    ;; Bookmarks
    mu4e-bookmarks
    `(("flag:unread AND NOT flag:trashed" "Ungelesene Nachrichten" ?u)
-     ("maildir:/ph/Inbox" "INBOX" ?a)
+     ("maildir:/ph/INBOX" "INBOX" ?a)
      ("maildir:/ph/Gesendete Elemente" "Gesendete Elemente" ?s))
 
    ;; Bei Reply oder Zitat die Zeile anpassen, dass auch Datum/Uhrzeit angezeigt wird
