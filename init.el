@@ -575,6 +575,20 @@
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
 
+(use-package emojify
+  :ensure t
+  :hook (after-init . global-emojify-mode))
+
+(use-package company-emoji
+  :ensure t
+  :config
+  (add-to-list 'company-backends 'company-emoji)
+  ;; Hint: thumbsup hat nicht funktioniert bei Autocomplete glaube
+  ;;       weil in der Liste schon das Symbol stand und nicht der
+  ;;       shortcode. Passe hier an:
+  ;;       company-emoji-aliases
+)
+
 ;; GPTEL
 
 (defun ollama-backend () (gptel-make-ollama "Ollama" :host "localhost:11434" :stream t :models '(llama3)))
