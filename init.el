@@ -151,6 +151,12 @@
   (eval-after-load 'mu4e
     '(bind-key "u" #'mu4e-update-mail-and-index mu4e-main-mode-map))
 
+  ;; HACK: Die Thread-Symbole hatten immer GELB als Background, das
+  ;; war hässlich. Hier manuell umgeschaltet auf Hintergrundfarbe.
+  (with-eval-after-load 'mu4e
+    (set-face-attribute 'mu4e-thread-fold-face nil
+                        :background "#273136"))
+
   ;; start mu4e
   ;; Hab für den Mac mu installiert mit brew
   (add-to-list 'load-path "/opt/homebrew/share/emacs/site-lisp/mu/mu4e")
