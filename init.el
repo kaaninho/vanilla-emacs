@@ -459,15 +459,14 @@
   "Major mode for capturing a note in Obsidian Daily file."
   ;; Set keybinding for saving and going to previous buffer
   (bind-key "C-c C-c" (lambda () (save-buffer) (kill-buffer))
-            'obsidian-markdown-mode-map))
+            'obsidian-capture-mode-map))
 
 (defun obsidian-daily-note-with-time ()
   (interactive)
   (obsidian-daily-note)
-  (obsidian-markdown-mode)
-  (goto-line 999999)
+  (obsidian-capture-mode)
+  (forward-line 999999)
   (insert "# " (format-time-string "%H:%M:%S\n\n"))
-  (insert "- [ ] ")
   (save-buffer))
 
 ;;; Obsidian-Integration
@@ -492,7 +491,8 @@
 
 (use-package markdown-mode
   :mode
-  (("\\.md\\'" . markdown-mode))
+  (("\\.md\\'" . markdown-mode)
+   ("\\.md\\'" . outline-minor-mode))
 
   :custom
   (markdown-header-scaling t)
