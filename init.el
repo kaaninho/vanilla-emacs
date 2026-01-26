@@ -735,11 +735,12 @@
   )
 
 ;; Um alles (also auch z. B. den Mini-Buffer) zu skalieren
+;; (Ich musste es mal von Hand installieren... immer noch so?)
 (use-package default-text-scale
   :defer t
   :init
   (default-text-scale-mode)
-  (let ((scale 8)) ;; 0 = Standard, 1 = etwas größer, 2 = noch größer, usw.
+  (let ((scale 4)) ;; 0 = Standard, 1 = etwas größer, 2 = noch größer, usw.
     (dotimes (_ scale)
       (default-text-scale-increase)))
   :bind (("C-M-+" . default-text-scale-increase)
