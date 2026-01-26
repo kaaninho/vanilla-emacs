@@ -79,7 +79,7 @@
    mu4e-trash-folder "/ph/Gelöschte Elemente"
    mu4e-drafts-folder "/ph/Entwürfe"
    user-mail-address "kaan.sahin@ph-ludwigsburg.de"
-   user-full-name "Sahin, Kaan"
+   user-full-name "Kaan Sahin"
 
    ;; this works better with mbsync
    ;; (with offlineimap it works better when it's nil)
@@ -93,7 +93,7 @@
    sendmail-program "msmtp"
    
    mu4e-compose-signature
-   "Kaan Sahin\nInstitut für Informatik\nPädagogische Hochschule Ludwigsburg\nReuteallee 46\nD-71634 Ludwigsburg\n\nTel: +49 (0) 7141/140 - 2894\nRaum: 5.209\nE-Mail: kaan.sahin@ph-ludwigsburg.de"
+   "Kaan Sahin\nInstitut für Informatik\nPädagogische Hochschule Ludwigsburg\nReuteallee 46, D-71634 Ludwigsburg, Raum: 5.209"
    smtpmail-local-domain "mail.ph-gw.de"
    ;; um gesendete buffer zu killen
    message-kill-buffer-on-exit t
