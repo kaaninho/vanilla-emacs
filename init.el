@@ -34,11 +34,10 @@
   ;; show more detailed diff
   (setq magit-diff-refine-hunk t)
 
-  ;; so that hitting "q" the magit buffers get killed, not only burried
-  (eval-after-load 'magit
-    '(bind-key "q" (lambda() (interactive) (magit-mode-bury-buffer t)) magit-mode-map))
-
-  :bind ("C-x g" . magit))
+  :bind (("C-x g" . magit)
+         ;; so that hitting "q" the magit buffers get killed, not only burried
+         (:map magit-mode-map
+               ("q" . (lambda() (interactive) (magit-mode-bury-buffer t))))))
 
 (use-package magit-todos
   :after magit
