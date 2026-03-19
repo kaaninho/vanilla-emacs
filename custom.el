@@ -9,21 +9,11 @@
  '(custom-safe-themes
    '("87fa3605a6501f9b90d337ed4d832213155e3a2e36a512984f83e847102a42f4"
      default))
+ '(eglot-confirm-server-edits nil nil nil "Customized with use-package eglot")
  '(elpy-rpc-virtualenv-path 'current)
- '(package-selected-packages
-   '(all-the-icons amx auto-highlight-symbol clj-refactor company
-                   company-emoji copilot counsel-projectile csv-mode
-                   default-text-scale diminish diredfl doom-themes
-                   elixir-mode ellama elpy emojify envrc flycheck
-                   git-timemachine gptel haskell-mode helpful
-                   ivy-posframe json-mode keycast lsp-ivy lsp-metals
-                   lsp-pyright lsp-ui magit-todos marginalia
-                   nerd-icons nix-mode obsidian org-appear org-mime
-                   org-present org-re-reveal org-roam-ui org-superstar
-                   plantuml-mode polymode prettier projectile-ripgrep
-                   python-black racket-mode sbt-mode smartparens
-                   treesit treesit-auto typescript-mode wgrep
-                   yaml-mode))
+ '(package-selected-packages nil)
+ '(package-vc-selected-packages
+   '((gemini-cli :url "https://github.com/linchen2chris/gemini-cli.el")))
  '(safe-local-variable-values
    '((eval progn
            (setq python-shell-interpreter
