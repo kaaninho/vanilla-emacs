@@ -682,7 +682,7 @@
           (progn
             (message "Ollama nicht gefunden – nutze OpenAI-API.")
             (openai-backend))))
-  
+
   (defun my/ollama-running-p ()
     "Prüft, ob Ollama-Server auf localhost:11434 erreichbar ist."
     (interactive)
@@ -867,7 +867,7 @@
 
   :config
   (unbind-key "C-j" paredit-mode-map)
-  
+
   :bind ("C-M-g" . paredit-forward-down))
 
 (use-package smartparens
