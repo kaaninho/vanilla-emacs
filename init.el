@@ -480,15 +480,13 @@
   (require 'org-roam-protocol))
 
 ;; Little Major Mode for an obsidian markdown buffer
-
-(defun obsidian-capture-save-and-exit ()
-  (interactive)
-  (save-buffer)
-  (kill-buffer))
-
 (define-derived-mode obsidian-capture-mode markdown-mode "Obsidian Capture"
   "Major mode for capturing a note in Obsidian Daily file."
   ;; Set keybinding for saving and going to previous buffer
+  (defun obsidian-capture-save-and-exit ()
+    (interactive)
+    (save-buffer)
+    (kill-buffer))
   (define-key obsidian-capture-mode-map (kbd "C-c C-c")
               #'obsidian-capture-save-and-exit))
 
