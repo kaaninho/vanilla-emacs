@@ -86,13 +86,14 @@
 
    ;; Dont "delete" delete files
    mu4e-trash-without-flag t
-   
+
    ;; Mail Send
    message-send-mail-function 'message-send-mail-with-sendmail
    sendmail-program "msmtp"
-   
+
    mu4e-compose-signature
    "Kaan Sahin\nInstitut für Informatik\nPädagogische Hochschule Ludwigsburg\nReuteallee 46, D-71634 Ludwigsburg, Raum: 5.209"
+
    smtpmail-local-domain "mail.ph-gw.de"
    ;; um gesendete buffer zu killen
    message-kill-buffer-on-exit t
