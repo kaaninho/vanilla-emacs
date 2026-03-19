@@ -717,6 +717,19 @@
               ("C-TAB" . copilot-next-completion)
               ("C-<tab>" . copilot-next-completion)))
 
+;; for eat terminal backend:
+(use-package eat :ensure t)
+
+;; for vterm terminal backend:
+;; (use-package vterm :ensure t)
+;; for slash commands popup
+(use-package popup :ensure t)
+;; install gemini-cli.el
+(use-package gemini-cli :ensure t
+  :vc (:url "https://github.com/linchen2chris/gemini-cli.el" :rev :newest)
+  :config (gemini-cli-mode)
+  :bind-keymap ("C-c c" . gemini-cli-command-map))
+
 ;; Ellama-Konfiguration mit use-package
 (use-package ellama
   :ensure t
