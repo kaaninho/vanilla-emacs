@@ -157,23 +157,6 @@
                           (:flags . 6)
                           (:from-or-to . 25)
                           (:subject . nil)))
-  
-  ;; Mit `q' kann man mu4e ganz verlassen (erhält dann aber auch keine Mails mehr).
-  ;; Deshalb überschreiben wir es mit `previous-buffer'.
-  (eval-after-load 'mu4e
-    '(bind-key "q" (lambda ()
-                     (interactive)
-                     (winner-undo))
-               mu4e-main-mode-map))
-  ;; leichter updaten
-  (eval-after-load 'mu4e
-    '(bind-key "u" #'mu4e-update-mail-and-index mu4e-main-mode-map))
-
-  ;; HACK: Die Thread-Symbole hatten immer GELB als Background, das
-  ;; war hässlich. Hier manuell umgeschaltet auf Hintergrundfarbe.
-  (with-eval-after-load 'mu4e
-    (set-face-attribute 'mu4e-thread-fold-face nil
-                        :background "#273136"))
 
   ;; start mu4e
   ;; Hab für den Mac mu installiert mit brew
@@ -200,7 +183,7 @@
         (message "[mu4e] Update every HOUR")
         (sit-for 1)
         (mu4e t))))
-  
+
   ;; Notifications
   ;; (mu4e-alert-set-default-style 'libnotify)
   ;; (mu4e-alert-enable-notifications)
@@ -210,10 +193,34 @@
   (require 'mu4e-icalendar)
   (mu4e-icalendar-setup)
 
+  :config
+
+  (defun my/mu4e-toggle-include-related ()
+    "Toggle `mu4e-headers-include-related` wie früher."
+    (interactive)
+    (setq mu4e-headers-include-related
+	  (not mu4e-headers-include-related))
+    (mu4e-headers-rerun-search))
+
+  ;; HACK: Die Thread-Symbole hatten immer GELB als Background, das
+  ;; war hässlich. Hier manuell umgeschaltet auf Hintergrundfarbe.
+  (set-face-attribute 'mu4e-thread-fold-face nil
+                      :background "#273136")
+
   :bind (("C-x m m" . mu4e)
          ;; Global Key Binding für Update mails
          ("C-x m u" . mu4e-update-mail-and-index)
-         ("C-x m t" . mu4e-toggle-update-frequency)))
+         ("C-x m t" . mu4e-toggle-update-frequency)
+         (:map mu4e-search-minor-mode-map
+               ("P" . my/mu4e-toggle-include-related))
+         (:map mu4e-main-mode-map
+               ;; leichter updaten
+               ("u" . mu4e-update-mail-and-index)
+               ;; Mit `q' kann man mu4e ganz verlassen (erhält dann
+               ;; aber auch keine Mails mehr). Deshalb überschreiben
+               ;; wir es mit `previous-buffer'.
+               ("q" . winner-undo)))
+  )
 
 ;; Damit kann man Mails als HTML versenden einfach im
 ;; compse-mail-buffer dann `org-mime-htmlize' aufrufen.
