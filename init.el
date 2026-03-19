@@ -1446,24 +1446,6 @@
 ;; `cd ~/.emacs.d && find . -name *.elc -print0 | xargs -0 rm`
 ;; Danach `M-x spacemacs/recompile-elpa`
 
-;;;; TODO
-
-;; TODO: Schriftart: Hack statt Deja Vu
-
-;; TODO: Selectrum? https://github.com/raxod502/selectrum
-
-;;;; Aussortiert
-
-;;; project.el
-;; eingebaut. Hatte nicht alles, was ich wollte, was projectile hat. Z. B.:
-;; - toggle namespace / tests
-;; - search in project files for a string
-;;
-;; (use-package project
-;;   :ensure t
-;;   :config
-;;   (fset 'project-prefix-map project-prefix-map)
-;;   :bind ("C-c p" . project-prefix-map))
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
