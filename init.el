@@ -108,9 +108,11 @@
 
    ;; Bookmarks
    mu4e-bookmarks
-   `(("flag:unread AND NOT flag:trashed" "Ungelesene Nachrichten" ?u)
+   `(("flag:unread AND NOT flag:trashed" "Ungelesen" ?u)
      ("maildir:/ph/INBOX" "INBOX" ?a)
-     ("maildir:/ph/Gesendete Elemente" "Gesendete Elemente" ?s))
+     ("maildir:/ph/Archivieren" "Archiv" ?i)
+     ("maildir:/ph/Entwürfe" "Entwürfe" ?e)
+     ("maildir:\"/ph/Gesendete Elemente\"" "Gesendet" ?s))
 
    ;; Bei Reply oder Zitat die Zeile anpassen, dass auch Datum/Uhrzeit angezeigt wird
    message-citation-line-function #'message-insert-formatted-citation-line
