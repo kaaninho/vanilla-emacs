@@ -324,9 +324,9 @@
   ;; (require 'org-notify)
   ;; (org-notify-add 'daily
   ;;                 '(:time "5m" :period "2m" :duration 100
-  ;;       	          :actions -notify)
+  ;;                      :actions -notify)
   ;;                 '(:time "5m" :period "2m" :duration 100
-  ;;       	          :actions (-message -ding)))
+  ;;                      :actions (-message -ding)))
   ;; (org-notify-start)
 
   ;; I do not want to show the daily TODOs in agenda view
@@ -378,11 +378,11 @@
         org-enable-reveal-js-support t
         org-hide-emphasis-markers t
         org-emphasis-alist '(("*" bold)
-		             ("/" italic)
-		             ("_" underline)
-		             ("=" (:foreground "#EFCA08" :background "#555555"))
-		             ("~" org-verbatim verbatim)
-		             ("+" (:strike-through t)))
+                             ("/" italic)
+                             ("_" underline)
+                             ("=" (:foreground "#EFCA08" :background "#555555"))
+                             ("~" org-verbatim verbatim)
+                             ("+" (:strike-through t)))
 
         ;; For images in org-mode
         org-image-actual-width nil
