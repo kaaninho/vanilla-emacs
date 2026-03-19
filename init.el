@@ -864,11 +864,13 @@
 
 ;;; Plantuml
 ;; Lade beim ersten Installieren das Jar-File herunter mit
-;; `plantuml-download-jar'
+;;     `plantuml-download-jar'
+;;
 (use-package plantuml-mode
   :config
-  (setq plantuml-jar-path "bin/plantuml.jar")
-  (setq org-plantuml-jar-path "/home/kaan/bin/plantuml.jar")
+  (setq plantuml-default-exec-mode 'jar)
+  (setq plantuml-jar-path "~/bin/plantuml.jar")
+  (setq org-plantuml-jar-path "~/bin/plantuml.jar")
   (setq plantuml-output-type "svg"))
 ;;;; ---- Programming Languages ----
 
