@@ -122,16 +122,32 @@
    mu4e-user-mail-address-list '("kaan.sahin@ph-ludwigsburg.de")
    mu4e-compose-dont-reply-to-self t
 
-;;; Format flowed für E-Mails
-   ;; format=flowed gesendete Nachrichten brechen optional nach X Zeichen um
-   ;; Das ist insbesondere für mobile Geräte, wo die standardmäßigen 72 Zeichen
-   ;; pro Zeile zu viel sind, sinnvoll, da sonst doppelt umgebrochen wird.
 
-   ;; format=flowed unterstützen nicht alle Programme. Deshalb benutze ich einfach
-   ;; harte Breaks. Ist auf mobilen Geräten nicht so schön, aber who cares. Dafuq
-   use-hard-newlines nil
-   mu4e-compose-format-flowed nil
-   fill-flowed-encode-column 72
+   ;;; NUR WEGEN MS OUTLOOK
+   ;; Outlook macht bei Reply einer html immer ein Attachment draus
+   ;; daher wandeln wir html dateien um in plain (bzw. bevorzugen
+   ;; plain, falls beides geschickt wird
+   ;; Info: Forward geht leider irgendwie nicht. Immer noch broken
+   
+   ;; Plain-Text beim Zitieren bevorzugen (bei multipart/alternative)
+   mm-discouraged-alternatives '("text/html" "text/richtext")
+   ;; Bei "only HTML"-Mails: HTML-Part automatisch in Plain-Text konvertieren beim Zitieren
+   mu4e-html2text-command 'mu4e-shr2text
+   ;; kein format=flowed beim Senden
+   mml-enable-flowed nil
+   ;; keine Part-Aufteilung
+   message-send-mail-partially-limit nil   
+  
+  ;;; Format flowed für E-Mails
+  ;; format=flowed gesendete Nachrichten brechen optional nach X Zeichen um
+  ;; Das ist insbesondere für mobile Geräte, wo die standardmäßigen 72 Zeichen
+  ;; pro Zeile zu viel sind, sinnvoll, da sonst doppelt umgebrochen wird.
+
+  ;; format=flowed unterstützen nicht alle Programme. Deshalb benutze ich einfach
+  ;; harte Breaks. Ist auf mobilen Geräten nicht so schön, aber who cares. Dafuq
+  use-hard-newlines nil
+  mu4e-compose-format-flowed nil
+  fill-flowed-encode-column 72
 
    ;; Falls eml Dateien drin sind die nicht gut lesbar sind (nicht öffnen kann)
    mu4e-view-use-gnus t
