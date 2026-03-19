@@ -467,7 +467,7 @@
          ("C-c n f" . org-roam-node-find)
          ("C-c n g" . org-roam-graph)
          ("C-c n i" . org-roam-node-insert)
-         ("C-c n c" . org-roam-capture)
+         ;; ("C-c n c" . org-roam-capture)
          ;; Dailies
          ("C-c n d" . org-roam-dailies-goto-today)
          ("C-c n j" . org-roam-dailies-capture-today))
@@ -480,31 +480,54 @@
   (require 'org-roam-protocol))
 
 ;; Little Major Mode for an obsidian markdown buffer
+
+(defun obsidian-capture-save-and-exit ()
+  (interactive)
+  (save-buffer)
+  (kill-buffer))
+
 (define-derived-mode obsidian-capture-mode markdown-mode "Obsidian Capture"
   "Major mode for capturing a note in Obsidian Daily file."
   ;; Set keybinding for saving and going to previous buffer
-  (bind-key "C-c C-c" (lambda () (save-buffer) (kill-buffer))
-            'obsidian-capture-mode-map))
+  (define-key obsidian-capture-mode-map (kbd "C-c C-c")
+              #'obsidian-capture-save-and-exit))
 
 (defun obsidian-daily-note-with-time ()
   (interactive)
   (obsidian-daily-note)
-  (obsidian-capture-mode)
-  (forward-line 999999)
-  (insert "# " (format-time-string "%H:%M:%S\n\n"))
-  (save-buffer))
+  ;; wenn buffer leer ist
+  (if (= (point-min) (point-max))
+      (progn
+        (insert "---\n")
+        (insert "status: to-revise\n")
+        (insert "---\n\n")
+        ;; füge das heutige datum ein, der Monat soll ausgeschrieben sein
+        (insert "# " (format-time-string "%d. %B %Y\n\n")))
+    ;; ansonsten: füge eine leerzeile ganz am ende des dokuments ein,
+    ;; falls es nicht schon eine gibt
+    (progn
+      (goto-char (point-max))
+      (unless (save-excursion
+                (beginning-of-line)
+                (forward-line -1)
+                (looking-at-p "[ \t]*$"))
+        (insert "\n"))))
+
+  (insert "## " (format-time-string "%H:%M:%S\n\n"))
+  (save-buffer)
+  (obsidian-capture-mode))
 
 ;;; Obsidian-Integration
 (use-package obsidian
-  :after (markdown-mode)
-  :config
+  :init
   (setq obsidian-directory "/Users/kaan/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianOnIcloud"
         obsidian-daily-notes-directory "Daily"
-        obsidian-inbox-directory "⭐INBOX")
+        obsidian-inbox-directory "⭐INBOX"
+        obsidian-templates-directory nil)
+  (setopt markdown-enable-wiki-links t)
 
-  :bind (("C-c c" . obsidian-capture)
-         ("C-c d" . obsidian-daily-note-with-time)
-         ("C-c n f" . obsidian-follow-link-at-point)))
+  :bind (("C-c n c" . obsidian-capture)
+         ("C-c d" . obsidian-daily-note-with-time)))
 
 (use-package org-roam-ui
   :after org-roam
@@ -515,14 +538,21 @@
   (org-roam-ui-open-on-start t))
 
 (use-package markdown-mode
-  :mode
-  (("\\.md\\'" . markdown-mode)
-   ("\\.md\\'" . outline-minor-mode))
+  :ensure t
+  :mode ("\\.md\\'" . markdown-mode)
+  :init
+  (setq markdown-command "multimarkdown")
+  (setopt markdown-header-scaling t)
+  (setopt markdown-header-scaling-values '(1.5 1.3 1.2 1.0 1.0 1.0))
 
-  :custom
-  (markdown-header-scaling t)
-  (markdown-hide-urls t)
-  (markdown-fontify-code-blocks-natively t))
+  :bind
+  (("C-c n f" . obsidian-jump)
+   (:map markdown-mode-map
+         ("C-c C-p" . markdown-preview)
+         ("C-c C-e" . markdown-do)
+         ;; I will almost always only use markdown mode with obsidian
+         ("C-c C-o" . obsidian-follow-link-at-point)
+         ("C-c n i" . obsidian-insert-wikilink))))
 
 ;;; Idle Highlight Mode
 (use-package auto-highlight-symbol
