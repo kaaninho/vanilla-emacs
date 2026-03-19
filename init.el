@@ -563,17 +563,44 @@
   :config
   (ahs-set-idle-interval 2))
 
-;;; Auto-Completion
+;;; ============================================================
+;;; COMPANY - Completion Framework
+;;; ============================================================
 (use-package company
   :defer t
   :diminish ""
 
+  :custom
+  (company-minimum-prefix-length 1)
+  (company-idle-delay 0.2)
+  (company-tooltip-align-annotations t)
+  (company-selection-wrap-around t)
+  (company-backends '(company-capf   ;; nutzt eglot/LSP completions
+                      company-dabbrev-code
+                      company-files))
   :init
   (global-company-mode)
-  (setq company-idle-delay 0.2)
-
   :bind
-  ("C-<return>" . company-complete))
+  (:map company-active-map
+        ("C-n"   . company-select-next)
+        ("C-p"   . company-select-previous)
+        ("<tab>" . company-complete-selection)
+        ("RET"   . nil) ;; RET nicht für completion nutzen
+        ))
+
+(use-package emojify
+  :ensure t
+  :hook (after-init . global-emojify-mode))
+
+(use-package company-emoji
+  :ensure t
+  :config
+  (add-to-list 'company-backends 'company-emoji)
+  ;; Hint: thumbsup hat nicht funktioniert bei Autocomplete glaube
+  ;;       weil in der Liste schon das Symbol stand und nicht der
+  ;;       shortcode. Passe hier an:
+  ;;       company-emoji-aliases
+)
 
 ;;; Projectile
 (use-package projectile
@@ -629,20 +656,6 @@
   (doom-themes-treemacs-config)
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
-
-(use-package emojify
-  :ensure t
-  :hook (after-init . global-emojify-mode))
-
-(use-package company-emoji
-  :ensure t
-  :config
-  (add-to-list 'company-backends 'company-emoji)
-  ;; Hint: thumbsup hat nicht funktioniert bei Autocomplete glaube
-  ;;       weil in der Liste schon das Symbol stand und nicht der
-  ;;       shortcode. Passe hier an:
-  ;;       company-emoji-aliases
-)
 
 ;; GPTEL
 
