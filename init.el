@@ -793,6 +793,25 @@
                         (gptel-backend-name (plist-get info :backend))
                         (string-trim (or response "Keine Antwort."))))))
 
+
+(defun my-get-openrouter-api-key ()
+  (interactive)
+  nil)
+
+(use-package aidermacs
+  :defer t
+  :config
+  ;; Set API_KEY in .bashrc, that will automatically picked up by aider or in elisp
+  (setenv "ANTHROPIC_API_KEY" "")
+  ;; defun my-get-openrouter-api-key yourself elsewhere for security reasons
+  (setenv "OPENROUTER_API_KEY" "hello")
+  :custom
+  ;; See the Configuration section below
+  (aidermacs-default-chat-mode 'architect)
+  (aidermacs-default-model "sonnet")
+
+  :bind ("C-c C-a" . aidermacs-transient-menu))
+
 ;; Hiermit werden Tastenanschläge und -Kombinationen in der Mode-Line
 ;; angezeigt, gut für Screencasting
 ;; Zudem wird bei Funktionen der Funktionsname nebendran angezeigt
