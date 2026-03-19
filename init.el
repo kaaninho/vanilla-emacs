@@ -1413,6 +1413,11 @@
 
 ;;; Start server.
 (require 'server)
+
+(setq server-use-tcp t)
+(setq server-host "127.0.0.1")
+(setq server-name "emacs")
+
 (setq server-socket-dir (expand-file-name "~/.emacs.d/server"))
 (unless (server-running-p)
   (message "Start Server")
