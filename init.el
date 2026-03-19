@@ -1122,10 +1122,24 @@
               ("C-k" . comment-or-uncomment-region)
               ("g" . counsel-rg)))
 
-(add-to-list
- 'treesit-language-source-alist
- '(javascript . ("https://github.com/tree-sitter/tree-sitter-javascript"
-            "v0.23.0")))
+(use-package treesit
+  :ensure nil ;; built-in seit Emacs 29
+  :config
+  (setq treesit-extra-load-path '("~/.emacs.d/tree-sitter"))
+  (setq treesit-language-source-alist
+        '((json   . ("https://github.com/tree-sitter/tree-sitter-json"))
+          (python . ("https://github.com/tree-sitter/tree-sitter-python"))
+          (bash   . ("https://github.com/tree-sitter/tree-sitter-bash"))
+          (yaml   . ("https://github.com/ikatyang/tree-sitter-yaml"))
+          (toml   . ("https://github.com/tree-sitter/tree-sitter-toml"))
+          (javascript . ("https://github.com/tree-sitter/tree-sitter-javascript" "v0.23.0"))))
+
+  ;; Grammars installieren falls fehlend:
+  (dolist (lang treesit-language-source-alist)
+    (unless (treesit-language-available-p (car lang))
+      (treesit-install-language-grammar (car lang)))))
+
+;; weil Emacs unter MacOS manchmal den PATH nicht automatisch hat
 
 ;;;; ---- Global Key Bindings ----
 
