@@ -978,8 +978,6 @@
 
 (use-package lsp-mode
   :defer t
-  :hook ((lsp-mode . lsp-enable-which-key-integration)
-         (python-mode . lsp))
 
   :init
   ;; Better performance, see https://emacs-lsp.github.io/lsp-mode/page/performance/
@@ -989,7 +987,6 @@
   (setq gc-cons-threshold 100000000) ;; 100 mb, default was 800 kb
   (setq read-process-output-max (* 1024 1024)) ;; 1 mb , default was 4096 b
 
-  (lsp-lens-mode )
   :commands lsp)
 
 (use-package lsp-ui
@@ -1019,10 +1016,6 @@
         '((t . ivy--regex-plus)))
   :commands lsp-ivy-workspace-symbol)
 
-;; optionally if you want to use debugger
-(use-package dap-mode)
-;; (use-package dap-LANGUAGE) to load the dap adapter for your language
-
 (use-package flycheck
   :config
   ;; Weil es sonst in dieser und jeder anderen Datei oben in der
@@ -1041,51 +1034,6 @@
   :hook ((racket-mode . racket-xp-mode))
   :init
   (setq racket-program "/home/kaan/.nix-profile/bin/racket"))
-
-;;; Scala
-(use-package scala-mode
-  :defer t
-  :interpreter
-  ("scala" . scala-mode)
-  :hook
-  (scala-mode . lsp)
-
-  ;; Wenn dann: (scala-mode . lsp-lens-mode) ?!?!
-  ;; (lsp-mode . lsp-lens-mode)
-  ;; :hook
-  ;; (scala-mode . (lambda ()
-  ;;                 (add-hook 'before-save-hook #'delete-trailing-whitespace)))
-  ;; (scala-mode . (lambda ()
-  ;;                       (add-hook 'before-save-hook #'lsp-format-buffer nil t)))
-  )
-
-(use-package sbt-mode
-  :commands sbt-start sbt-command
-  :defer t
-  :config
-  ;; WORKAROUND: https://github.com/ensime/emacs-sbt-mode/issues/31
-  ;; allows using SPACE when in the minibuffer
-  (substitute-key-definition
-   'minibuffer-complete-word
-   'self-insert-command
-   minibuffer-local-completion-map)
-  ;; sbt-supershell kills sbt-mode:  https://github.com/hvesalai/emacs-sbt-mode/issues/152
-  (setq sbt:program-options '("-Dsbt.supershell=false")))
-
-(use-package lsp-metals
-  :defer t)
-
-
-;;; Die zwei folgenden waren bei der offiziellen metals scala emacs
-;;; doku empfohlen, ich lass es mal drin
-;; Posframe is a pop-up tool that must be manually installed for dap-mode
-(use-package posframe)
-
-;; Use the Debug Adapter Protocol for running tests and debugging
-(use-package dap-mode
-  :hook
-  (lsp-mode . dap-mode)
-  (lsp-mode . dap-ui-mode))
 
 ;;; TODO
 ;;; Um Häufigkeit von Keybinding-Usage anzuzeigen
@@ -1157,8 +1105,7 @@
   ;; Tree-sitter
   ;; Not sure if I want to continue to use it
   (setq major-mode-remap-alist
-        '((python-mode   . python-ts-mode)
-          (c-mode        . c-ts-mode)
+        '((c-mode        . c-ts-mode)
           (c++-mode      . c++-ts-mode)
           (js-mode       . js-ts-mode)
           (json-mode     . json-ts-mode)
