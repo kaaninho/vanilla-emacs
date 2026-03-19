@@ -1153,6 +1153,89 @@
       (treesit-install-language-grammar (car lang)))))
 
 ;; weil Emacs unter MacOS manchmal den PATH nicht automatisch hat
+;;; python-dev.el --- Python development setup with eglot, pyright, company, apheleia, pyvenv
+
+;;; ============================================================
+;;; EGLOT - LSP Client (eingebaut seit Emacs 29)
+;;; ============================================================
+(use-package eglot
+  :ensure nil ;; eingebaut, kein Download nötig
+  :hook
+  (python-mode . eglot-ensure)
+  (python-ts-mode . eglot-ensure)
+  :custom
+  (eglot-autoshutdown t)
+  (eglot-confirm-server-initiated-edits nil)
+  :config
+  ;; Pyright explizit registrieren
+  (add-to-list 'eglot-server-programs
+               '((python-mode python-ts-mode)
+                 . ("pyright-langserver" "--stdio")))
+  ;; Performance-Tuning
+  (setq eglot-events-buffer-size 0)
+  (fset #'jsonrpc--log-event #'ignore))
+
+;;; ============================================================
+;;; APHELEIA - Formatter (ruff als moderner Ersatz für black + isort)
+;;; ============================================================
+(use-package apheleia
+  :hook
+  (python-mode . apheleia-mode)
+  (python-ts-mode . apheleia-mode)
+  :config
+  (setf (alist-get 'ruff-format apheleia-formatters)
+        '("ruff" "format" "--silent" "-"))
+  (setf (alist-get 'ruff-isort apheleia-formatters)
+        '("ruff" "check" "--select" "I" "--fix" "--silent" "-"))
+  (setf (alist-get 'python-mode apheleia-mode-alist)
+        '(ruff-isort ruff-format))
+  (setf (alist-get 'python-ts-mode apheleia-mode-alist)
+        '(ruff-isort ruff-format)))
+
+;;; ============================================================
+;;; PYVENV - Virtual Environment Management
+;;; ============================================================
+(use-package pyvenv
+  :hook
+  (python-mode . pyvenv-mode)
+  (python-ts-mode . pyvenv-mode)
+  :config
+  (setenv "WORKON_HOME" (expand-file-name "~/.virtualenvs"))
+
+  ;; Eglot nach venv-Wechsel neu starten
+  (add-hook 'pyvenv-post-activate-hooks
+            (lambda ()
+              (when (eglot-managed-p)
+                (eglot-reconnect (eglot-current-server)))))
+  (add-hook 'pyvenv-post-deactivate-hooks
+            (lambda ()
+              (when (eglot-managed-p)
+                (eglot-reconnect (eglot-current-server)))))
+  :bind
+  ("C-c v a" . pyvenv-activate)
+  ("C-c v d" . pyvenv-deactivate)
+  ("C-c v w" . pyvenv-workon))
+
+;;; ============================================================
+;;; PYTHON-MODE - Built-in Einstellungen
+;;; ============================================================
+(use-package python
+  :ensure nil
+  :config
+  ;; es kommt eine warnung:
+  ;; ⛔ Warning (native-compiler): pyvenv.el:319:6: Warning: the function ‘widget-types-convert-widget’ is not known to be defined.
+  ;; die kann man einfach unterdrücken
+  (setq native-comp-async-report-warnings-errors 'silent)
+  :hook
+  (python-mode . company-mode)
+  (python-ts-mode . company-mode)
+  :custom
+  (python-indent-offset 4)
+  (python-shell-interpreter "python3")
+  :hook
+  (python-mode . (lambda ()
+                   (setq show-trailing-whitespace t))))
+
 
 ;;;; ---- Global Key Bindings ----
 
