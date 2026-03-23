@@ -1027,13 +1027,18 @@
         '((t . ivy--regex-plus)))
   :commands lsp-ivy-workspace-symbol)
 
+;; hab ich erstmal global deaktiviert, weil ich auch schon flymake
+;; hab. flymake für python ist das. llm sagt, dann brauch ich flycheck
+;; nicht mehr. die frage ist, ob andere programme flycheck brauchen.
 (use-package flycheck
   :config
   ;; Weil es sonst in dieser und jeder anderen Datei oben in der
   ;; ersten Zeile meckert ("You should have a section marked ";;;
   ;; Commentary:"")
   (setq-default flycheck-disabled-checkers '(emacs-lisp-checkdoc))
-  :init (global-flycheck-mode))
+  :init
+  ;; (global-flycheck-mode)
+  )
 
 ;;; Racket
 ;; ATTENTION: Don't visit a file and immediately hit `C-c C-c` for a
@@ -1143,7 +1148,9 @@
           (bash   . ("https://github.com/tree-sitter/tree-sitter-bash"))
           (yaml   . ("https://github.com/ikatyang/tree-sitter-yaml"))
           (toml   . ("https://github.com/tree-sitter/tree-sitter-toml"))
-          (javascript . ("https://github.com/tree-sitter/tree-sitter-javascript" "v0.23.0"))))
+          (javascript . ("https://github.com/tree-sitter/tree-sitter-javascript" "v0.23.0"))
+          (typescript . ("https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src"))
+          (tsx        . ("https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src"))))
 
   ;; Grammars installieren falls fehlend:
   (dolist (lang treesit-language-source-alist)
@@ -1151,88 +1158,105 @@
       (treesit-install-language-grammar (car lang)))))
 
 ;; weil Emacs unter MacOS manchmal den PATH nicht automatisch hat
-;;; python-dev.el --- Python development setup with eglot, pyright, company, apheleia, pyvenv
-
-;;; ============================================================
-;;; EGLOT - LSP Client (eingebaut seit Emacs 29)
-;;; ============================================================
-(use-package eglot
-  :ensure nil ;; eingebaut, kein Download nötig
-  :hook
-  (python-mode . eglot-ensure)
-  (python-ts-mode . eglot-ensure)
-  :custom
-  (eglot-autoshutdown t)
-  (eglot-confirm-server-initiated-edits nil)
+;; ALSO: Add `mise' unterstützung
+(use-package exec-path-from-shell
+  :ensure t
   :config
-  ;; Pyright explizit registrieren
+  (exec-path-from-shell-initialize)
+  (let ((mise-shims (expand-file-name "~/.local/share/mise/shims")))
+    (when (file-directory-p mise-shims)
+      (add-to-list 'exec-path mise-shims)
+      (setenv "PATH" (concat mise-shims ":" (getenv "PATH"))))))
+
+;; ──────────────────────────────────────────
+;; LSP via eglot
+;; ──────────────────────────────────────────
+
+;; Voraussetzungen (einmalig im Terminal installieren):
+;;   pip install pyright ruff
+;;   npm install -g typescript typescript-language-server
+
+(use-package eglot
+  :ensure t  ;; ab Emacs 29 eingebaut, dann weglassen
+  :hook
+  ((python-mode        . eglot-ensure)
+   (python-ts-mode     . eglot-ensure)
+   (typescript-mode    . eglot-ensure)
+   (typescript-ts-mode . eglot-ensure)
+   (tsx-ts-mode        . eglot-ensure))
+  :config
+  ;; Pyright für Python registrieren
   (add-to-list 'eglot-server-programs
                '((python-mode python-ts-mode)
-                 . ("pyright-langserver" "--stdio")))
-  ;; Performance-Tuning
-  (setq eglot-events-buffer-size 0)
-  (fset #'jsonrpc--log-event #'ignore))
+                 "pyright-langserver" "--stdio"))
+  ;; typescript-language-server ist per default schon drin,
+  ;; aber explizit für tsx-ts-mode ergänzen:
+  (add-to-list 'eglot-server-programs
+               '((typescript-ts-mode tsx-ts-mode)
+                 "typescript-language-server" "--stdio"))
+  :custom
+  ;; Eglot-Events-Buffer klein halten (Performance)
+  (eglot-events-buffer-size 0)
+  ;; Automatisches Shutdown wenn Buffer geschlossen wird
+  (eglot-autoshutdown t)
+  ;; Highlights bei Cursor über Symbol
+  (eglot-highlight-symbol-face 'highlight))
 
-;;; ============================================================
-;;; APHELEIA - Formatter (ruff als moderner Ersatz für black + isort)
-;;; ============================================================
-(use-package apheleia
-  :hook
-  (python-mode . apheleia-mode)
-  (python-ts-mode . apheleia-mode)
-  :config
-  (setf (alist-get 'ruff-format apheleia-formatters)
-        '("ruff" "format" "--silent" "-"))
-  (setf (alist-get 'ruff-isort apheleia-formatters)
-        '("ruff" "check" "--select" "I" "--fix" "--silent" "-"))
-  (setf (alist-get 'python-mode apheleia-mode-alist)
-        '(ruff-isort ruff-format))
-  (setf (alist-get 'python-ts-mode apheleia-mode-alist)
-        '(ruff-isort ruff-format)))
 
-;;; ============================================================
-;;; PYVENV - Virtual Environment Management
-;;; ============================================================
-(use-package pyvenv
-  :hook
-  (python-mode . pyvenv-mode)
-  (python-ts-mode . pyvenv-mode)
-  :config
-  (setenv "WORKON_HOME" (expand-file-name "~/.virtualenvs"))
+;; ──────────────────────────────────────────
+;; Python
+;; ──────────────────────────────────────────
 
-  ;; Eglot nach venv-Wechsel neu starten
-  (add-hook 'pyvenv-post-activate-hooks
-            (lambda ()
-              (when (eglot-managed-p)
-                (eglot-reconnect (eglot-current-server)))))
-  (add-hook 'pyvenv-post-deactivate-hooks
-            (lambda ()
-              (when (eglot-managed-p)
-                (eglot-reconnect (eglot-current-server)))))
-  :bind
-  ("C-c v a" . pyvenv-activate)
-  ("C-c v d" . pyvenv-deactivate)
-  ("C-c v w" . pyvenv-workon))
-
-;;; ============================================================
-;;; PYTHON-MODE - Built-in Einstellungen
-;;; ============================================================
 (use-package python
-  :ensure nil
-  :config
-  ;; es kommt eine warnung:
-  ;; ⛔ Warning (native-compiler): pyvenv.el:319:6: Warning: the function ‘widget-types-convert-widget’ is not known to be defined.
-  ;; die kann man einfach unterdrücken
-  (setq native-comp-async-report-warnings-errors 'silent)
-  :hook
-  (python-mode . company-mode)
-  (python-ts-mode . company-mode)
+  :ensure nil  ;; eingebaut
   :custom
   (python-indent-offset 4)
-  (python-shell-interpreter "python3")
-  :hook
-  (python-mode . (lambda ()
-                   (setq show-trailing-whitespace t))))
+  (python-shell-interpreter "python3"))
+
+;; Virtuelles Environment automatisch aktivieren
+(use-package pyvenv
+  :ensure t
+  :hook (python-mode . pyvenv-mode)
+  :config
+  ;; Sucht automatisch nach .venv / venv im Projektverzeichnis
+  (pyvenv-tracking-mode 1))
+
+
+;; ──────────────────────────────────────────
+;; TypeScript
+;; ──────────────────────────────────────────
+
+;; Voraussetzung: M-x treesit-install-language-grammar RET typescript
+(use-package treesit
+  :ensure nil  ;; eingebaut (Emacs 29+)
+  :mode
+  ("\\.ts\\'"  . typescript-ts-mode)
+  ("\\.tsx\\'" . tsx-ts-mode))
+
+;; ──────────────────────────────────────────
+;; Formatting via apheleia (ruff + prettier)
+;; ──────────────────────────────────────────
+
+(use-package apheleia
+  :ensure t
+  :config
+  ;; ruff für Python
+  (setf (alist-get 'python-mode apheleia-mode-alist) 'ruff)
+  (setf (alist-get 'python-ts-mode apheleia-mode-alist) 'ruff)
+  ;; prettier für TypeScript/TSX
+  (setf (alist-get 'typescript-mode apheleia-mode-alist) 'prettier)
+  (setf (alist-get 'typescript-ts-mode apheleia-mode-alist) 'prettier)
+  (setf (alist-get 'tsx-ts-mode apheleia-mode-alist) 'prettier)
+
+  ;; Aktiviere im python mode
+  (add-hook 'python-mode-hook #'apheleia-mode))
+
+;;; meow
+(use-package meow
+  :ensure t
+  :config
+  ;;(meow-global-mode 1)
+  )
 
 
 ;;;; ---- Global Key Bindings ----
