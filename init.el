@@ -287,7 +287,7 @@
 (use-package marginalia
   ;; Either bind `marginalia-cycle' globally or only in the minibuffer
   :bind (:map minibuffer-local-map
-         ("M-A" . marginalia-cycle))
+              ("M-A" . marginalia-cycle))
   :init
   (marginalia-mode))
 
@@ -342,9 +342,9 @@
 
   ;; Todo Faces
   (setq org-todo-keyword-faces
-      '(("TODO" . org-warning)
-        ("To-Watch" . "yellow")
-        ("Watched" . (:foreground "#FD971F" :weight bold))))
+        '(("TODO" . org-warning)
+          ("To-Watch" . "yellow")
+          ("Watched" . (:foreground "#FD971F" :weight bold))))
 
   ;; org-reveal
   (setq org-reveal-root "file:///home/kaan/tmp/reveal.js")
@@ -397,17 +397,17 @@
   (require 'org-tempo)
   ;; org-present
   (use-package org-present
-  :hook ((org-present-mode . (lambda ()
-                               (org-present-big)
-                               (org-display-inline-images)
-                               (org-present-hide-cursor)
-                               (org-present-read-only)))
-         (org-present-mode-quit . (lambda ()
-                                    (org-present-small)
-                                    (org-remove-inline-images)
-                                    (org-present-show-cursor)
-                                    (org-present-read-write)))
-         ))
+    :hook ((org-present-mode . (lambda ()
+                                 (org-present-big)
+                                 (org-display-inline-images)
+                                 (org-present-hide-cursor)
+                                 (org-present-read-only)))
+           (org-present-mode-quit . (lambda ()
+                                      (org-present-small)
+                                      (org-remove-inline-images)
+                                      (org-present-show-cursor)
+                                      (org-present-read-write)))
+           ))
 
   ;; When `org-hide-emphasis-markers' is `t' it's convenient to see
   ;; the markers when editing the text. `org-appear' does that.
@@ -598,7 +598,7 @@
   ;;       weil in der Liste schon das Symbol stand und nicht der
   ;;       shortcode. Passe hier an:
   ;;       company-emoji-aliases
-)
+  )
 
 ;;; Projectile
 (use-package projectile
@@ -655,12 +655,11 @@
   ;; Corrects (and improves) org-mode's native fontification.
   (doom-themes-org-config))
 
-;; GPTEL
-
+;;; GPTEL
 (defun ollama-backend () (gptel-make-ollama "Ollama" :host "localhost:11434" :stream t :models '(llama3)))
 (defun openai-backend () (gptel-make-openai "OpenAI"
-                            :key ""
-                            :models '(gpt-4.1-nano gpt-3.5-turbo gpt-4o) :stream t))
+                           :key ""
+                           :models '(gpt-4.1-nano gpt-3.5-turbo gpt-4o) :stream t))
 (use-package gptel
   :ensure t
   :commands (gptel gptel-send)
@@ -928,7 +927,7 @@
 
   :hook ((elixir-mode . lsp)
          (elixir-mode . (lambda ()
-                           (add-hook 'before-save-hook #'elixir-format nil t)))
+                          (add-hook 'before-save-hook #'elixir-format nil t)))
          (elixir-mode . yas-minor-mode)
          (elixir-mode . smartparens-mode))
 
