@@ -1115,7 +1115,7 @@
   (winner-mode)
 
   ;; I have to do this, else Elixir mode is selected with Latex files
-  (add-to-list 'auto-mode-alist '("\\.tex\\'" . latex-mode))
+  (add-to-list 'auto-mode-alist '("\\.tex\\'" . LaTeX-mode))
 
   ;; Tree-sitter
   ;; Not sure if I want to continue to use it
@@ -1249,6 +1249,75 @@
 
   ;; Aktiviere im python mode
   (add-hook 'python-mode-hook #'apheleia-mode))
+
+;; ──────────────────────────────────────────
+;; LaTeX (AUCTeX + pdf-tools + auto-compile)
+;; ──────────────────────────────────────────
+
+;; Voraussetzungen (einmalig im Terminal):
+;;   brew install poppler automake
+;; Danach in Emacs:
+;;   M-x pdf-tools-install
+;; (kompiliert epdfinfo, das pdf-tools intern braucht)
+
+(use-package auctex
+  :ensure t
+  :defer t
+  :mode ("\\.tex\\'" . LaTeX-mode)
+  :hook
+  ((LaTeX-mode . turn-on-reftex)             ;; Referenzen: \ref, \cite, \label
+   (LaTeX-mode . LaTeX-math-mode)            ;; Math-Shortcuts via ` prefix
+   (LaTeX-mode . TeX-source-correlate-mode)  ;; SyncTeX (Sprung PDF<->Quelle)
+   (LaTeX-mode . my/latex-auto-compile-setup))
+  :custom
+  (TeX-auto-save t)
+  (TeX-parse-self t)
+  (TeX-PDF-mode t)
+  (TeX-master nil)                            ;; bei \include immer nach Master fragen
+  (TeX-source-correlate-method 'synctex)
+  (TeX-source-correlate-start-server t)
+  (reftex-plug-into-AUCTeX t)
+  ;; Viewer fest auf pdf-tools — kein Prompt beim Anzeigen
+  (TeX-view-program-list '(("PDF Tools" TeX-pdf-tools-sync-view)))
+  (TeX-view-program-selection '((output-pdf "PDF Tools")
+                                (output-dvi "PDF Tools")
+                                (output-html "PDF Tools")))
+  :config
+  ;; PDF-Buffer nach Compile automatisch refreshen
+  (setq TeX-after-compilation-finished-functions #'TeX-revert-document-buffer)
+  ;; Falls AUCTeX trotzdem mal nachladen sollte: fest verdrahten
+  (with-eval-after-load 'tex
+    (setq TeX-view-program-list '(("PDF Tools" TeX-pdf-tools-sync-view))
+          TeX-view-program-selection '((output-pdf "PDF Tools")
+                                       (output-dvi "PDF Tools")
+                                       (output-html "PDF Tools"))))
+
+  (defun my/latex-compile-on-save ()
+    "Kompiliert die aktuelle LaTeX-Datei nach jedem Save."
+    (when (derived-mode-p 'LaTeX-mode)
+      (let ((TeX-save-query nil))
+        (TeX-command-run-all nil))))
+
+  (defun my/latex-auto-compile-setup ()
+    (add-hook 'after-save-hook #'my/latex-compile-on-save nil t)))
+
+;; latexmk als Default-Compiler (kümmert sich um Mehrfach-Compile für Refs/Biblio)
+(use-package auctex-latexmk
+  :ensure t
+  :after auctex
+  :config
+  (auctex-latexmk-setup)
+  (setq auctex-latexmk-inherit-TeX-PDF-mode t)
+  (setq-default TeX-command-default "LatexMk"))
+
+;; PDF-Anzeige innerhalb von Emacs
+(use-package pdf-tools
+  :ensure t
+  :defer t
+  :magic ("%PDF" . pdf-view-mode)
+  :hook (pdf-view-mode . (lambda () (display-line-numbers-mode -1)))
+  :config
+  (pdf-tools-install :no-query))
 
 ;;; meow
 (use-package meow

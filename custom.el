@@ -12,16 +12,16 @@
  '(eglot-confirm-server-edits nil nil nil "Customized with use-package eglot")
  '(elpy-rpc-virtualenv-path 'current)
  '(package-selected-packages
-   '(aidermacs all-the-icons amx apheleia auto-highlight-symbol
-               clj-refactor company-emoji copilot counsel-projectile
-               csv-mode default-text-scale diminish diredfl
-               doom-themes eat elixir-mode ellama emojify envrc
+   '(aidermacs all-the-icons amx apheleia auctex auctex-latexmk
+               auto-highlight-symbol clj-refactor company-emoji copilot
+               counsel-projectile csv-mode default-text-scale diminish
+               diredfl doom-themes eat elixir-mode ellama emojify envrc
                exec-path-from-shell flycheck gemini-cli
                git-timemachine gptel haskell-mode helpful hl-todo
                json-mode keycast lsp-ivy lsp-treemacs lsp-ui magit
                marginalia meow nerd-icons nix-mode obsidian org-appear
                org-mime org-present org-re-reveal org-roam-ui
-               org-superstar plantuml-mode polymode popup
+               org-superstar pdf-tools plantuml-mode polymode popup
                projectile-ripgrep pyvenv racket-mode smartparens
                typescript-mode vterm wgrep yaml-mode))
  '(package-vc-selected-packages
