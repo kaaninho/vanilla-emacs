@@ -13,14 +13,14 @@
  '(elpy-rpc-virtualenv-path 'current)
  '(package-selected-packages
    '(aidermacs all-the-icons amx apheleia auctex auctex-latexmk
-               auto-highlight-symbol clj-refactor company-emoji copilot
-               counsel-projectile csv-mode default-text-scale diminish
-               diredfl doom-themes eat elixir-mode ellama emojify envrc
-               exec-path-from-shell flycheck gemini-cli
-               git-timemachine gptel haskell-mode helpful hl-todo
-               json-mode keycast lsp-ivy lsp-treemacs lsp-ui magit
-               marginalia meow nerd-icons nix-mode obsidian org-appear
-               org-mime org-present org-re-reveal org-roam-ui
+               auto-highlight-symbol cdlatex clj-refactor company-auctex
+               company-emoji company-reftex copilot counsel-projectile
+               csv-mode default-text-scale diminish diredfl doom-themes
+               eat elixir-mode ellama emojify envrc exec-path-from-shell
+               flycheck gemini-cli git-timemachine gptel haskell-mode
+               helpful hl-todo json-mode keycast lsp-ivy lsp-treemacs
+               lsp-ui magit marginalia meow nerd-icons nix-mode obsidian
+               org-appear org-mime org-present org-re-reveal org-roam-ui
                org-superstar pdf-tools plantuml-mode polymode popup
                projectile-ripgrep pyvenv racket-mode smartparens
                typescript-mode vterm wgrep yaml-mode))

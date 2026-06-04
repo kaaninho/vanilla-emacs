@@ -1310,6 +1310,34 @@
   (setq auctex-latexmk-inherit-TeX-PDF-mode t)
   (setq-default TeX-command-default "LatexMk"))
 
+;; Autocomplete via company: \textcolor, \begin{...}, Symbole, Labels, Refs
+(use-package company-auctex
+  :ensure t
+  :after company
+  :config
+  (company-auctex-init))
+
+;; Bessere Completion für \cite{...} und \ref{...} basierend auf RefTeX
+;; (parst .bib-Dateien und Labels automatisch, auch biblatex)
+(use-package company-reftex
+  :ensure t
+  :after (company reftex)
+  :config
+  (add-to-list 'company-backends 'company-reftex-labels)
+  (add-to-list 'company-backends 'company-reftex-citations))
+
+;; Schnelles Tippen: `equ TAB` -> equation-Env, `C-c {` fragt nach Env,
+;; `^`/`_` mit Klammern, `` ` `` als Math-Prefix (z. B. ``a -> \alpha)
+(use-package cdlatex
+  :ensure t
+  :hook ((LaTeX-mode . turn-on-cdlatex)
+         (org-mode   . turn-on-org-cdlatex))
+  :custom
+  ;; Beim `equ TAB` direkt Cursor zwischen \begin und \end positionieren
+  (cdlatex-simplify-sub-super-scripts t)
+  ;; Kein Auto-Pair für $, das macht electric-pair/smartparens schon
+  (cdlatex-paired-parens "[{("))
+
 ;; PDF-Anzeige innerhalb von Emacs
 (use-package pdf-tools
   :ensure t
