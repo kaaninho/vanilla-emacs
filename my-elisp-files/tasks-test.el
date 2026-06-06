@@ -1,170 +1,484 @@
+;;; tasks-test.el --- Tests for tasks.el -*- lexical-binding: t; -*-
+
 (require 'ert)
+(require 'cl-lib)
 (require 'tasks)
 
-(ert-deftest tasks-test--read-tasks-emojis ()
-  "Test if my/read-tasks parses emojis correctly and handles order independence."
-  (let ((my/tasks-directory (make-temp-file "tasks" t))
-        (my/tasks-file "tasks.md")
-        (obsidian-directory "/tmp"))
-    (with-temp-buffer
-      (insert "- [ ] Task 1 📅 2026-05-26 ⏳ 2026-05-25\n")
-      (insert "- [ ] Task 2 ⏰ 2026-05-26 10:00 📅 2026-12-31\n")
-      (write-file (my/tasks-path)))
+(defmacro tasks-test--with-temp-dirs (&rest body)
+  "Run BODY with `my/tasks-directory' and `my/tasks-archive-directory' as temp paths.
+The macro exposes `temp-dir' as the active-tasks directory."
+  (declare (indent 0) (debug t))
+  `(let* ((temp-dir (make-temp-file "tasks-test-" t))
+          (my/tasks-directory temp-dir)
+          (my/tasks-archive-directory (expand-file-name "archive" temp-dir)))
+     (unwind-protect
+         (progn ,@body)
+       (dolist (buf (buffer-list))
+         (let ((bfn (buffer-file-name buf)))
+           (when (and bfn
+                      (string-prefix-p
+                       (file-name-as-directory (expand-file-name temp-dir))
+                       (expand-file-name bfn)))
+             (with-current-buffer buf (set-buffer-modified-p nil))
+             (kill-buffer buf))))
+       (dolist (name '("*Inbox*" "*Today*" "*Next*" "*Waiting*" "*Someday*" "*Archive*"))
+         (when (get-buffer name) (kill-buffer name)))
+       (when (file-directory-p temp-dir)
+         (delete-directory temp-dir t)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Slugify
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--slugify-basic ()
+  (should (equal (my/tasks--slugify "Hello World") "hello-world"))
+  (should (equal (my/tasks--slugify "FOO  bar") "foo-bar"))
+  (should (equal (my/tasks--slugify "") "task")))
+
+(ert-deftest tasks-test--slugify-umlauts ()
+  (should (equal (my/tasks--slugify "Wäsche waschen") "waesche-waschen"))
+  (should (equal (my/tasks--slugify "Größe ändern für Üben")
+                 "groesse-aendern-fuer-ueben")))
+
+(ert-deftest tasks-test--slugify-strips-brackets ()
+  (should (equal (my/tasks--slugify "[[E-Mail schreiben]]")
+                 "e-mail-schreiben")))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Frontmatter
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--parse-frontmatter ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\ndue: 2026-06-08\n---\n\n# Title\n"))
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :status) "inbox"))
+        (should (equal (plist-get task :due) "2026-06-08"))
+        (should (equal (plist-get task :title) "Title"))))))
+
+(ert-deftest tasks-test--parse-frontmatter-quoted-value ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\nproject: \"[[Projekt X]]\"\n---\n\n# T\n"))
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :project) "[[Projekt X]]"))))))
+
+(ert-deftest tasks-test--update-property-replace ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# T\n"))
+      (my/tasks--update-property file "status" "today")
+      (should (equal (plist-get (my/tasks--parse-frontmatter file) :status)
+                     "today")))))
+
+(ert-deftest tasks-test--update-property-add ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# T\n"))
+      (my/tasks--update-property file "due" "2026-06-08")
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :due) "2026-06-08"))
+        (should (equal (plist-get task :status) "inbox"))))))
+
+(ert-deftest tasks-test--update-property-remove ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\ndue: 2026-06-08\n---\n\n# T\n"))
+      (my/tasks--update-property file "due" nil)
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should-not (plist-get task :due))
+        (should (equal (plist-get task :status) "inbox"))))))
+
+(ert-deftest tasks-test--update-property-quotes-bracketed-value ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# T\n"))
+      (my/tasks--update-property file "project" "[[Projekt X]]")
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :project) "[[Projekt X]]"))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Capture
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--capture-creates-file ()
+  (tasks-test--with-temp-dirs
+    (my/tasks-capture "Test Task")
+    (let* ((path (expand-file-name "test-task.md" temp-dir))
+           (task (my/tasks--parse-frontmatter path)))
+      (should (file-exists-p path))
+      (should (equal (plist-get task :status) "inbox"))
+      (should (equal (plist-get task :title) "Test Task"))
+      (should (plist-get task :created)))))
+
+(ert-deftest tasks-test--capture-collision ()
+  (tasks-test--with-temp-dirs
+    (my/tasks-capture "Same Title")
+    (my/tasks-capture "Same Title")
+    (should (file-exists-p (expand-file-name "same-title.md" temp-dir)))
+    (should (file-exists-p (expand-file-name "same-title-2.md" temp-dir)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Reading & filtering
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--read-tasks-ignores-non-tasks ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: inbox\n---\n\n# A\n"))
+    (with-temp-file (expand-file-name "b.md" temp-dir)
+      (insert "Random notes.\n"))
+    (with-temp-file (expand-file-name "c.md" temp-dir)
+      (insert "---\ntitle: c\n---\n# C\n"))
     (let ((tasks (my/read-tasks)))
-      (should (= (length tasks) 2))
-      (let ((t1 (car tasks))
-            (t2 (nth 1 tasks)))
-        (should (equal (plist-get t1 :due) "2026-05-26"))
-        (should (equal (plist-get t1 :scheduled) "2026-05-25"))
-        (should (equal (plist-get t2 :reminder) "2026-05-26 10:00"))
-        (should (equal (plist-get t2 :due) "2026-12-31"))))))
+      (should (= (length tasks) 1))
+      (should (equal (plist-get (car tasks) :title) "A")))))
 
-(ert-deftest tasks-test--toggle-today-status ()
-  "Test if my/tasks-toggle-today works with status:: property."
-  (let* ((temp-dir (make-temp-file "tasks" t))
-         (my/tasks-directory temp-dir)
-         (my/tasks-file "tasks.md")
-         (obsidian-directory "/tmp"))
-    (with-current-buffer (find-file (my/tasks-path))
-      (insert "- [ ] Task 1\n  status:: inbox\n")
-      (save-buffer)
-      
-      (goto-char (point-min))
+(ert-deftest tasks-test--read-tasks-excludes-archive-subdir ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: inbox\n---\n\n# A\n"))
+    (make-directory my/tasks-archive-directory)
+    (with-temp-file (expand-file-name "x.md" my/tasks-archive-directory)
+      (insert "---\nstatus: done\n---\n\n# X\n"))
+    (let ((tasks (my/read-tasks)))
+      (should (= (length tasks) 1))
+      (should (equal (plist-get (car tasks) :title) "A")))))
+
+(ert-deftest tasks-test--by-status ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: inbox\n---\n\n# A\n"))
+    (with-temp-file (expand-file-name "b.md" temp-dir)
+      (insert "---\nstatus: next\n---\n\n# B\n"))
+    (with-temp-file (expand-file-name "c.md" temp-dir)
+      (insert "---\nstatus: today\n---\n\n# C\n"))
+    (should (= (length (my/tasks-by-status "inbox")) 1))
+    (should (= (length (my/tasks-by-status "next")) 1))
+    (should (= (length (my/tasks-today)) 1))))
+
+(ert-deftest tasks-test--due-today ()
+  (tasks-test--with-temp-dirs
+    (let ((today (format-time-string "%Y-%m-%d")))
+      (with-temp-file (expand-file-name "a.md" temp-dir)
+        (insert (format "---\nstatus: next\ndue: %s\n---\n\n# A\n" today)))
+      (with-temp-file (expand-file-name "b.md" temp-dir)
+        (insert "---\nstatus: next\ndue: 2099-12-31\n---\n\n# B\n"))
+      (should (= (length (my/tasks-due-today)) 1))
+      (should (equal (plist-get (car (my/tasks-due-today)) :title) "A")))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; State changes
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--toggle-today ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "a.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: next\n---\n\n# A\n"))
+      (find-file file)
       (my/tasks-toggle-today)
-      (should (string-match-p "status:: today" (buffer-string)))
-      
+      (should (equal (plist-get (my/tasks--parse-frontmatter file) :status)
+                     "today"))
       (my/tasks-toggle-today)
-      (should (string-match-p "status:: next" (buffer-string)))
-      
-      (kill-buffer))))
+      (should (equal (plist-get (my/tasks--parse-frontmatter file) :status)
+                     "next")))))
 
-(ert-deftest tasks-test--mark-done ()
-  "Test if my/tasks-mark-done toggles checkbox robustly."
-  (with-temp-buffer
-    (insert "  - [ ] Task 1\n")
-    (insert "- [X] Task 2\n")
-    
-    (goto-char (point-min))
-    (my/tasks-mark-done)
-    (should (string-match-p "  - \\[x\\] Task 1" (buffer-string)))
-    
-    (forward-line 1)
-    (my/tasks-mark-done)
-    (should (string-match-p "- \\[ \\] Task 2" (buffer-string)))))
+(ert-deftest tasks-test--mark-done-archives ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "a.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# A\n"))
+      (find-file file)
+      (my/tasks-mark-done)
+      (should-not (file-exists-p file))
+      (let* ((archive-files (directory-files
+                             my/tasks-archive-directory t "\\.md\\'"))
+             (archived-path (car archive-files)))
+        (should (= 1 (length archive-files)))
+        (let ((task (my/tasks--parse-frontmatter archived-path)))
+          (should (equal (plist-get task :status) "done"))
+          (should (plist-get task :archived-at)))))))
 
-(ert-deftest tasks-test--archive-timestamp ()
-  "Test if archiving adds archived-at timestamp."
-  (let* ((temp-dir (make-temp-file "tasks" t))
-         (my/tasks-directory temp-dir)
-         (my/tasks-file "tasks.md")
-         (my/archive-file "archive.md")
-         (obsidian-directory "/tmp"))
-    (with-current-buffer (find-file (my/tasks-path))
-      (insert "- [x] Done Task\n  status:: done\n")
-      (save-buffer)
-      (goto-char (point-min))
-      (my/tasks-archive-at-point)
-      (should (= (buffer-size) 0)))
-    
-    (with-current-buffer (find-file-noselect (my/archive-path))
-      (revert-buffer t t)
-      (goto-char (point-min))
-      (should (re-search-forward "archived-at:: [0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}" nil t)))))
+(ert-deftest tasks-test--archived-file-has-date-prefix ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "wash-clothes.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\n---\n\n# Wash clothes\n"))
+      (find-file file)
+      (my/tasks-mark-done)
+      (let ((archive-files (directory-files
+                            my/tasks-archive-directory nil "\\.md\\'")))
+        (should (= 1 (length archive-files)))
+        (should (string-match-p
+                 (concat "^" (format-time-string "%Y-%m-%d")
+                         "-wash-clothes\\.md$")
+                 (car archive-files)))))))
 
-(ert-deftest tasks-test--batch-archive ()
-  "Test if my/archive-done archives all completed tasks."
-  (let* ((temp-dir (make-temp-file "tasks" t))
-         (my/tasks-directory temp-dir)
-         (my/tasks-file "tasks.md")
-         (my/archive-file "archive.md")
-         (obsidian-directory "/tmp"))
-    (with-current-buffer (find-file (my/tasks-path))
-      (insert "- [x] Task 1\n- [ ] Task 2\n- [x] Task 3\n")
-      (save-buffer)
-      (my/archive-done)
-      (revert-buffer t t)
-      (should (string-match-p "- \\[ \\] Task 2" (buffer-string)))
-      (should-not (string-match-p "Task 1" (buffer-string)))
-      (should-not (string-match-p "Task 3" (buffer-string))))
-    
-    (with-current-buffer (find-file-noselect (my/archive-path))
-      (revert-buffer t t)
-      (should (string-match-p "Task 1" (buffer-string)))
-      (should (string-match-p "Task 3" (buffer-string))))))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; View
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(ert-deftest tasks-test--interactive-view ()
-  "Test if interactive view actions update the source file and stay visible."
-  (let* ((temp-dir (make-temp-file "tasks" t))
-         (my/tasks-directory temp-dir)
-         (my/tasks-file "tasks.md")
-         (obsidian-directory "/tmp"))
-    (with-temp-buffer
-      (insert "- [ ] Task 1\n  status:: inbox\n")
-      (write-file (my/tasks-path)))
-    
+(ert-deftest tasks-test--view-cursor-lands-on-first-task ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: inbox\n---\n\n# A\n"))
     (my/tasks-show-inbox)
-    (let ((view-buf (get-buffer "*Inbox*")))
-      (with-current-buffer view-buf
-        (goto-char (point-min))
-        (re-search-forward "- \\[ \\] Task 1")
-        (beginning-of-line)
-        
-        ;; Verify marker is present
-        (should (get-text-property (point) 'my/task-pos))
-        
-        ;; Mark as done
-        (my/tasks-view-mark-done)
-        
-        ;; Verify visual update in view
-        (goto-char (line-beginning-position))
-        (should (looking-at ".*- \\[x\\] Task 1"))
-        
-        ;; Mark as undone (Toggle again)
-        (my/tasks-view-mark-done)
-        
-        ;; Verify visual update back to undone
-        (goto-char (line-beginning-position))
-        (should (looking-at ".*- \\[ \\] Task 1"))
-        
-        ;; Set due date from view
-        (my/tasks-view-set-due "2026-12-24")
-        
-        ;; Verify source file update
-        (with-current-buffer (find-file-noselect (my/tasks-path))
-          (revert-buffer t t)
-          (goto-char (point-min))
-          (should (re-search-forward "📅 2026-12-24" nil t))))
-      (kill-buffer view-buf))))
+    (with-current-buffer "*Inbox*"
+      (should (get-text-property (point) 'my/task-file)))))
 
-(ert-deftest tasks-test--view-cycling ()
-  "Test if view cycling switches buffers."
-  (let* ((temp-dir (make-temp-file "tasks" t))
-         (my/tasks-directory temp-dir)
-         (my/tasks-file "tasks.md")
-         (obsidian-directory "/tmp"))
-    (with-temp-buffer (write-file (my/tasks-path)))
-    
-    (my/tasks-show-inbox)
-    (should (string= (buffer-name) "*Inbox*"))
-    (my/tasks-view-cycle)
-    (should (string= (buffer-name) "*Today*"))
-    (my/tasks-view-cycle)
-    (should (string= (buffer-name) "*Next*"))
-    
-    (kill-buffer "*Inbox*")
-    (kill-buffer "*Today*")
-    (kill-buffer "*Next*")))
+(ert-deftest tasks-test--view-mark-done-queues-then-commits-on-refresh ()
+  "In a view `x' queues the change; the actual archive happens on refresh."
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "a.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# A\n"))
+      (my/tasks-show-inbox)
+      (with-current-buffer "*Inbox*"
+        (my/tasks-mark-done)
+        ;; Queued: file still in active, annotation visible.
+        (should (file-exists-p file))
+        (should (assoc file my/tasks-pending-changes))
+        (should (string-match-p "→ done" (buffer-string)))
+        ;; Refresh commits.
+        (my/tasks-view-refresh))
+      (should-not (file-exists-p file))
+      (should (= 1 (length (directory-files my/tasks-archive-directory
+                                            t "\\.md\\'")))))))
 
-(ert-deftest tasks-test--wiki-link-detection ()
-  "Test if wiki links are detected correctly."
-  (let* ((obsidian-directory (make-temp-file "obsidian" t))
-         (target-file (expand-file-name "My Note.md" obsidian-directory)))
-    (with-temp-buffer (write-file target-file))
-    
-    ;; This is a bit hard to test fully without real filesystem logic, 
-    ;; but we can test the regex part.
-    (with-temp-buffer
-      (insert "- [ ] Check [[My Note]] 📅 2026-05-26\n")
-      (goto-char (point-min))
-      (should (string-match "\\[\\[\\(.*?\\)\\]\\]" (buffer-string)))
-      (should (equal (match-string 1 (buffer-string)) "My Note")))))
+(ert-deftest tasks-test--view-commits-on-reopen ()
+  "Re-invoking the view from outside the buffer commits pending changes."
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "a.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# A\n"))
+      (my/tasks-show-inbox)
+      (with-current-buffer "*Inbox*" (my/tasks-set-status "next"))
+      ;; File should still be in inbox status (pending only).
+      (should (equal (plist-get (my/tasks--parse-frontmatter file) :status)
+                     "inbox"))
+      ;; Reopening the view triggers commit.
+      (my/tasks-show-inbox)
+      (should (equal (plist-get (my/tasks--parse-frontmatter file) :status)
+                     "next")))))
+
+(ert-deftest tasks-test--view-toggle-today-queues ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "a.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: next\n---\n\n# A\n"))
+      (my/tasks-show-next)
+      (with-current-buffer "*Next*"
+        (my/tasks-toggle-today)
+        (should (equal (cdr (assoc file my/tasks-pending-changes)) "today"))
+        ;; Toggle again: today → next.
+        (my/tasks-toggle-today)
+        (should (equal (cdr (assoc file my/tasks-pending-changes)) "next")))
+      ;; Still next on disk.
+      (should (equal (plist-get (my/tasks--parse-frontmatter file) :status)
+                     "next")))))
+
+(ert-deftest tasks-test--archive-view-lists-archived ()
+  (tasks-test--with-temp-dirs
+    (make-directory my/tasks-archive-directory t)
+    (with-temp-file (expand-file-name "2026-05-26-old.md"
+                                      my/tasks-archive-directory)
+      (insert "---\nstatus: done\narchived-at: 2026-05-26\n---\n\n# Old\n"))
+    (my/tasks-show-archive)
+    (with-current-buffer "*Archive*"
+      (should (string-match-p "Old" (buffer-string))))))
+
+(ert-deftest tasks-test--view-commit-from-archive-back-to-active ()
+  "Setting status on an archived task in the view should move it back on commit."
+  (tasks-test--with-temp-dirs
+    (make-directory my/tasks-archive-directory t)
+    (let ((archived (expand-file-name "2026-05-26-old.md"
+                                      my/tasks-archive-directory)))
+      (with-temp-file archived
+        (insert "---\nstatus: done\narchived-at: 2026-05-26\n---\n\n# Old\n"))
+      (my/tasks-show-archive)
+      (with-current-buffer "*Archive*"
+        (my/tasks-set-status "inbox")
+        (my/tasks-view-refresh))
+      (should-not (file-exists-p archived))
+      (let ((restored (expand-file-name "old.md" temp-dir)))
+        (should (file-exists-p restored))
+        (let ((task (my/tasks--parse-frontmatter restored)))
+          (should (equal (plist-get task :status) "inbox"))
+          (should-not (plist-get task :archived-at)))))))
+
+(ert-deftest tasks-test--current-task-file-excludes-archive ()
+  "Inside an archived task buffer, status/date actions should refuse to operate."
+  (tasks-test--with-temp-dirs
+    (make-directory my/tasks-archive-directory t)
+    (let ((archived (expand-file-name "2026-05-26-old.md"
+                                      my/tasks-archive-directory)))
+      (with-temp-file archived
+        (insert "---\nstatus: done\narchived-at: 2026-05-26\n---\n\n# Old\n"))
+      (find-file archived)
+      (should-not (my/tasks--current-task-file))
+      (should-error (my/tasks-toggle-today) :type 'user-error))))
+
+(ert-deftest tasks-test--view-date-setter-does-not-commit-pending ()
+  "Setting a date in a view must NOT commit pending status changes."
+  (tasks-test--with-temp-dirs
+    (let ((a (expand-file-name "a.md" temp-dir))
+          (b (expand-file-name "b.md" temp-dir)))
+      (with-temp-file a (insert "---\nstatus: inbox\n---\n\n# A\n"))
+      (with-temp-file b (insert "---\nstatus: inbox\n---\n\n# B\n"))
+      (my/tasks-show-inbox)
+      (with-current-buffer "*Inbox*"
+        ;; Queue a status change on A.
+        (goto-char (or (next-single-property-change (point-min) 'my/task-file)
+                       (point-min)))
+        (my/tasks-mark-done)
+        ;; Now set due on B (next task line).
+        (let ((next (next-single-property-change (point) 'my/task-file)))
+          (when next (goto-char (1+ next))))
+        (my/tasks-set-due "2026-12-31"))
+      ;; A's status change should still be pending (file not yet archived).
+      (should (file-exists-p a))
+      ;; B's due date is on disk.
+      (should (equal (plist-get (my/tasks--parse-frontmatter b) :due)
+                     "2026-12-31"))
+      ;; Pending changes for A still in buffer.
+      (with-current-buffer "*Inbox*"
+        (should (assoc a my/tasks-pending-changes))))))
+
+(ert-deftest tasks-test--multiple-pending-commit-together ()
+  (tasks-test--with-temp-dirs
+    (let ((a (expand-file-name "a.md" temp-dir))
+          (b (expand-file-name "b.md" temp-dir))
+          (c (expand-file-name "c.md" temp-dir)))
+      (with-temp-file a (insert "---\nstatus: inbox\n---\n\n# A\n"))
+      (with-temp-file b (insert "---\nstatus: inbox\n---\n\n# B\n"))
+      (with-temp-file c (insert "---\nstatus: inbox\n---\n\n# C\n"))
+      (my/tasks-show-inbox)
+      (with-current-buffer "*Inbox*"
+        ;; Programmatically queue three changes.
+        (my/tasks--queue-status-change a "next")
+        (my/tasks--queue-status-change b "today")
+        (my/tasks--queue-status-change c "done")
+        (my/tasks-view-refresh))
+      (should (equal (plist-get (my/tasks--parse-frontmatter a) :status) "next"))
+      (should (equal (plist-get (my/tasks--parse-frontmatter b) :status) "today"))
+      (should-not (file-exists-p c))
+      (should (= 1 (length (directory-files my/tasks-archive-directory
+                                            t "\\.md\\'")))))))
+
+(ert-deftest tasks-test--queue-overrides-previous ()
+  "Queueing the same file twice should keep only the latest target status."
+  (tasks-test--with-temp-dirs
+    (let ((a (expand-file-name "a.md" temp-dir)))
+      (with-temp-file a (insert "---\nstatus: inbox\n---\n\n# A\n"))
+      (my/tasks-show-inbox)
+      (with-current-buffer "*Inbox*"
+        (my/tasks--queue-status-change a "done")
+        (my/tasks--queue-status-change a "next")
+        (should (equal (cdr (assoc a my/tasks-pending-changes)) "next"))
+        (should (= 1 (length my/tasks-pending-changes)))
+        (my/tasks-view-refresh))
+      ;; Final status is "next"; file still in active dir (not archived).
+      (should (file-exists-p a))
+      (should (equal (plist-get (my/tasks--parse-frontmatter a) :status) "next")))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Date face — edge cases
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--date-face-handles-time-component ()
+  "Date-face must strip the time before comparing against today."
+  (let* ((today (format-time-string "%Y-%m-%d"))
+         (today-with-time (concat today " 09:00")))
+    (should (eq (my/tasks--date-face today-with-time) 'my/tasks-due-today-face))
+    (should (eq (my/tasks--date-face "2099-12-31 23:59") 'my/tasks-date-face))
+    (should (eq (my/tasks--date-face "1999-01-01 00:01") 'my/tasks-overdue-face))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Un-archive
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--unarchive-strips-date-prefix ()
+  (tasks-test--with-temp-dirs
+    (make-directory my/tasks-archive-directory t)
+    (let ((archived (expand-file-name "2026-05-26-old.md"
+                                      my/tasks-archive-directory)))
+      (with-temp-file archived
+        (insert "---\nstatus: done\narchived-at: 2026-05-26\n---\n\n# Old\n"))
+      (find-file archived)
+      (my/tasks-unarchive "next")
+      (should-not (file-exists-p archived))
+      (let ((new-file (expand-file-name "old.md" temp-dir)))
+        (should (file-exists-p new-file))
+        (let ((task (my/tasks--parse-frontmatter new-file)))
+          (should (equal (plist-get task :status) "next"))
+          (should-not (plist-get task :archived-at)))))))
+
+(ert-deftest tasks-test--unarchive-default-status ()
+  (tasks-test--with-temp-dirs
+    (make-directory my/tasks-archive-directory t)
+    (let ((archived (expand-file-name "2026-05-26-old.md"
+                                      my/tasks-archive-directory)))
+      (with-temp-file archived
+        (insert "---\nstatus: done\narchived-at: 2026-05-26\n---\n\n# Old\n"))
+      (find-file archived)
+      (my/tasks-unarchive "inbox")
+      (let* ((new-file (expand-file-name "old.md" temp-dir))
+             (task (my/tasks--parse-frontmatter new-file)))
+        (should (equal (plist-get task :status) "inbox"))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Date face helper
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--date-face ()
+  (let ((today (format-time-string "%Y-%m-%d")))
+    (should (eq (my/tasks--date-face today) 'my/tasks-due-today-face))
+    (should (eq (my/tasks--date-face "1999-01-01") 'my/tasks-overdue-face))
+    (should (eq (my/tasks--date-face "2999-01-01") 'my/tasks-date-face))
+    (should-not (my/tasks--date-face nil))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Migration
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--migrate-active ()
+  (tasks-test--with-temp-dirs
+    (let ((legacy-tasks (expand-file-name "tasks.md" temp-dir)))
+      (with-temp-file legacy-tasks
+        (insert "- [ ] Foo bar 📅 2026-06-08\n  status:: next\n\n"
+                "- [ ] Note me\n  status:: inbox\n  https://example.org\n"))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+        (my/tasks-migrate-from-legacy))
+      (should (file-exists-p (concat legacy-tasks ".migrated.bak")))
+      (let* ((foo (expand-file-name "foo-bar.md" temp-dir))
+             (note (expand-file-name "note-me.md" temp-dir))
+             (foo-task (my/tasks--parse-frontmatter foo))
+             (note-task (my/tasks--parse-frontmatter note)))
+        (should (file-exists-p foo))
+        (should (file-exists-p note))
+        (should (equal (plist-get foo-task :status) "next"))
+        (should (equal (plist-get foo-task :due) "2026-06-08"))
+        (should (equal (plist-get note-task :status) "inbox"))
+        (with-temp-buffer
+          (insert-file-contents note)
+          (should (string-match-p "https://example.org" (buffer-string))))))))
+
+(ert-deftest tasks-test--migrate-archive ()
+  (tasks-test--with-temp-dirs
+    (let ((legacy-archive (expand-file-name "archive.md" temp-dir)))
+      (with-temp-file legacy-archive
+        (insert "- [ ] Old task ⏳ 2026-05-26\n"
+                "  archived-at:: 2026-05-26\n"
+                "  status:: today\n"))
+      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+        (my/tasks-migrate-from-legacy))
+      (let* ((archived (expand-file-name "2026-05-26-old-task.md"
+                                         my/tasks-archive-directory))
+             (task (my/tasks--parse-frontmatter archived)))
+        (should (file-exists-p archived))
+        (should (equal (plist-get task :status) "done"))
+        (should (equal (plist-get task :archived-at) "2026-05-26"))
+        (should (equal (plist-get task :scheduled) "2026-05-26"))))))
+
+(provide 'tasks-test)
+;;; tasks-test.el ends here
