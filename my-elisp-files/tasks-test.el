@@ -425,14 +425,32 @@ The macro exposes `temp-dir' as the active-tasks directory."
       (should-error (my/tasks-capture-from-mu4e) :type 'user-error))))
 
 (ert-deftest tasks-test--open-mail-uses-frontmatter-msgid ()
+  "Uses `mu4e-view-message-with-message-id' (current mu4e API)."
   (tasks-test--with-temp-dirs
     (let* ((path (expand-file-name "a.md" temp-dir))
            (called-with nil))
       (with-temp-file path
         (insert "---\nstatus: inbox\nmu4e-msgid: my-id@host\n---\n\n# A\n"))
       (find-file path)
-      (cl-letf (((symbol-function 'mu4e-view-message-with-msgid)
+      (cl-letf (((symbol-function 'mu4e-view-message-with-message-id)
                  (lambda (id) (setq called-with id)))
+                ((symbol-function 'require) (lambda (&rest _) t)))
+        (my/tasks-open-mail))
+      (should (equal called-with "my-id@host")))))
+
+(ert-deftest tasks-test--open-mail-falls-back-to-old-mu4e ()
+  "Falls back to `mu4e-view-message-with-msgid' when only the old name exists."
+  (tasks-test--with-temp-dirs
+    (let* ((path (expand-file-name "a.md" temp-dir))
+           (called-with nil))
+      (with-temp-file path
+        (insert "---\nstatus: inbox\nmu4e-msgid: my-id@host\n---\n\n# A\n"))
+      (find-file path)
+      (cl-letf (((symbol-function 'mu4e-view-message-with-message-id) nil)
+                ((symbol-function 'mu4e-view-message-with-msgid)
+                 (lambda (id) (setq called-with id)))
+                ((symbol-function 'fboundp)
+                 (lambda (sym) (eq sym 'mu4e-view-message-with-msgid)))
                 ((symbol-function 'require) (lambda (&rest _) t)))
         (my/tasks-open-mail))
       (should (equal called-with "my-id@host")))))
@@ -456,7 +474,7 @@ The macro exposes `temp-dir' as the active-tasks directory."
         (insert "---\nstatus: done\narchived-at: 2026-05-26\n"
                 "mu4e-msgid: archived-id@host\n---\n\n# Old\n"))
       (find-file archived)
-      (cl-letf (((symbol-function 'mu4e-view-message-with-msgid)
+      (cl-letf (((symbol-function 'mu4e-view-message-with-message-id)
                  (lambda (id) (setq called-with id)))
                 ((symbol-function 'require) (lambda (&rest _) t)))
         (my/tasks-open-mail))

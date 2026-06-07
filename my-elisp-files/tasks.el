@@ -602,6 +602,7 @@ STATUS is the new status (defaults to `inbox')."
 
 (declare-function mu4e-message-at-point "mu4e" ())
 (declare-function mu4e-message-field "mu4e" (msg field))
+(declare-function mu4e-view-message-with-message-id "mu4e-view" (msgid))
 (declare-function mu4e-view-message-with-msgid "mu4e" (msgid))
 
 (defun my/tasks--mu4e-from-name (from)
@@ -656,7 +657,9 @@ Saves the Message-ID in frontmatter so `my/tasks-open-mail' can jump back."
         (message "Captured: %s" (file-name-nondirectory path))))))
 
 (defun my/tasks-open-mail ()
-  "Open the mu4e message linked to the task at point or in current buffer."
+  "Open the mu4e message linked to the task at point or in current buffer.
+Supports both new (`mu4e-view-message-with-message-id') and old
+\(`mu4e-view-message-with-msgid') mu4e function names."
   (interactive)
   (let* ((file (my/tasks--any-task-file))
          (msgid (when file
@@ -667,7 +670,12 @@ Saves the Message-ID in frontmatter so `my/tasks-open-mail' can jump back."
      ((not msgid) (user-error "No `mu4e-msgid' in this task"))
      (t
       (require 'mu4e)
-      (mu4e-view-message-with-msgid msgid)))))
+      (cond
+       ((fboundp 'mu4e-view-message-with-message-id)
+        (mu4e-view-message-with-message-id msgid))
+       ((fboundp 'mu4e-view-message-with-msgid)
+        (mu4e-view-message-with-msgid msgid))
+       (t (user-error "No mu4e function found to view messages by ID")))))))
 
 (with-eval-after-load 'mu4e
   (when (boundp 'mu4e-view-mode-map)
