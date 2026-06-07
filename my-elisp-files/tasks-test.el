@@ -385,39 +385,47 @@ The macro exposes `temp-dir' as the active-tasks directory."
 ;; Mu4e integration
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(ert-deftest tasks-test--mu4e-from-name-extracts-name ()
-  (should (equal (my/tasks--mu4e-from-name "Just a string") "Just a string"))
-  (should (equal (my/tasks--mu4e-from-name
-                  '((:name "Alice" :email "a@b")))
-                 "Alice"))
-  (should (equal (my/tasks--mu4e-from-name
+(ert-deftest tasks-test--mu4e-from-email-extracts-email ()
+  (should (equal (my/tasks--mu4e-from-email "alice@example.com")
+                 "alice@example.com"))
+  (should (equal (my/tasks--mu4e-from-email
+                  '((:name "Alice" :email "alice@example.com")))
+                 "alice@example.com"))
+  (should (equal (my/tasks--mu4e-from-email
                   '(("Bob" . "bob@example.com")))
-                 "Bob"))
-  (should (equal (my/tasks--mu4e-from-name
-                  '((:email "no-name@host")))
-                 "no-name@host"))
-  (should (equal (my/tasks--mu4e-from-name nil) "")))
+                 "bob@example.com"))
+  (should (equal (my/tasks--mu4e-from-email
+                  '((:name "No-email")))
+                 "No-email"))
+  (should (equal (my/tasks--mu4e-from-email nil) "")))
 
-(ert-deftest tasks-test--capture-from-mu4e-stores-msgid ()
+(ert-deftest tasks-test--capture-from-mu4e-body-is-bullet-list ()
+  "Title is whatever the user types; body lists source/from/subject as bullets."
   (tasks-test--with-temp-dirs
     (cl-letf (((symbol-function 'mu4e-message-at-point)
-               (lambda () (list :from '((:name "Alice" :email "a@b"))
+               (lambda () (list :from '((:name "Alice"
+                                        :email "alice@example.com"))
                                 :subject "Important request"
                                 :message-id "abc123@host")))
               ((symbol-function 'mu4e-message-field)
                (lambda (msg field) (plist-get msg field)))
               ((symbol-function 'read-string)
-               (lambda (&rest _) "Important request")))
+               (lambda (&rest _) "Reply to Alice")))
       (my/tasks-capture-from-mu4e))
-    (let* ((path (expand-file-name "important-request.md" temp-dir))
+    (let* ((path (expand-file-name "reply-to-alice.md" temp-dir))
            (task (my/tasks--parse-frontmatter path)))
       (should (file-exists-p path))
+      (should (equal (plist-get task :title) "Reply to Alice"))
       (should (equal (plist-get task :status) "inbox"))
       (should (equal (plist-get task :mu4e-msgid) "abc123@host"))
       (with-temp-buffer
         (insert-file-contents path)
-        (should (string-match-p "Von: Alice" (buffer-string)))
-        (should (string-match-p "Betreff: Important request" (buffer-string)))))))
+        (let ((body (buffer-string)))
+          (should (string-match-p "- aus E-Mail" body))
+          (should (string-match-p "- von: alice@example.com" body))
+          (should (string-match-p "- Betreff: Important request" body))
+          ;; Subject must NOT appear in the H1 (title).
+          (should-not (string-match-p "^# Important request" body)))))))
 
 (ert-deftest tasks-test--capture-from-mu4e-errors-outside-mu4e ()
   (tasks-test--with-temp-dirs

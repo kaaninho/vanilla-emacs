@@ -605,8 +605,9 @@ STATUS is the new status (defaults to `inbox')."
 (declare-function mu4e-view-message-with-message-id "mu4e-view" (msgid))
 (declare-function mu4e-view-message-with-msgid "mu4e" (msgid))
 
-(defun my/tasks--mu4e-from-name (from)
-  "Extract a display name from FROM (mu4e's :from field, multiple versions)."
+(defun my/tasks--mu4e-from-email (from)
+  "Extract an email address from FROM (mu4e's :from field, multiple versions).
+Falls back to the name if no email is present."
   (cond
    ((stringp from) from)
    ((and (consp from) (consp (car from)))
@@ -614,12 +615,12 @@ STATUS is the new status (defaults to `inbox')."
       (cond
        ;; new mu4e: plist (:name "..." :email "...")
        ((keywordp (car first))
-        (or (plist-get first :name)
-            (plist-get first :email)
+        (or (plist-get first :email)
+            (plist-get first :name)
             ""))
        ;; old mu4e: cons (name . email)
-       ((stringp (car first)) (car first))
        ((stringp (cdr first)) (cdr first))
+       ((stringp (car first)) (car first))
        (t ""))))
    (t "")))
 
@@ -637,9 +638,9 @@ Saves the Message-ID in frontmatter so `my/tasks-open-mail' can jump back."
     (unless msg (user-error "Not in a mu4e buffer"))
     (let* ((msgid (mu4e-message-field msg :message-id))
            (subject (or (mu4e-message-field msg :subject) ""))
-           (from-name (my/tasks--mu4e-from-name
-                       (mu4e-message-field msg :from)))
-           (title (read-string "Task title: " subject))
+           (from-email (my/tasks--mu4e-from-email
+                        (mu4e-message-field msg :from)))
+           (title (read-string "Task title: "))
            (slug (my/tasks--slugify title)))
       (my/tasks--ensure-dir my/tasks-directory)
       (let ((path (my/tasks--unique-path my/tasks-directory slug)))
@@ -650,9 +651,10 @@ Saves the Message-ID in frontmatter so `my/tasks-open-mail' can jump back."
           (insert (format "mu4e-msgid: %s\n" (my/tasks--yaml-quote msgid)))
           (insert "---\n\n")
           (insert (format "# %s\n\n" title))
-          (unless (string-empty-p from-name)
-            (insert (format "Von: %s\n" from-name)))
-          (insert (format "Betreff: %s\n" subject))
+          (insert "- aus E-Mail\n")
+          (unless (string-empty-p from-email)
+            (insert (format "  - von: %s\n" from-email)))
+          (insert (format "  - Betreff: %s\n" subject))
           (write-region (point-min) (point-max) path))
         (message "Captured: %s" (file-name-nondirectory path))))))
 
