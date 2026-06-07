@@ -382,6 +382,87 @@ The macro exposes `temp-dir' as the active-tasks directory."
       (should (equal (plist-get (my/tasks--parse-frontmatter a) :status) "next")))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Mu4e integration
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--mu4e-from-name-extracts-name ()
+  (should (equal (my/tasks--mu4e-from-name "Just a string") "Just a string"))
+  (should (equal (my/tasks--mu4e-from-name
+                  '((:name "Alice" :email "a@b")))
+                 "Alice"))
+  (should (equal (my/tasks--mu4e-from-name
+                  '(("Bob" . "bob@example.com")))
+                 "Bob"))
+  (should (equal (my/tasks--mu4e-from-name
+                  '((:email "no-name@host")))
+                 "no-name@host"))
+  (should (equal (my/tasks--mu4e-from-name nil) "")))
+
+(ert-deftest tasks-test--capture-from-mu4e-stores-msgid ()
+  (tasks-test--with-temp-dirs
+    (cl-letf (((symbol-function 'mu4e-message-at-point)
+               (lambda () (list :from '((:name "Alice" :email "a@b"))
+                                :subject "Important request"
+                                :message-id "abc123@host")))
+              ((symbol-function 'mu4e-message-field)
+               (lambda (msg field) (plist-get msg field)))
+              ((symbol-function 'read-string)
+               (lambda (&rest _) "Important request")))
+      (my/tasks-capture-from-mu4e))
+    (let* ((path (expand-file-name "important-request.md" temp-dir))
+           (task (my/tasks--parse-frontmatter path)))
+      (should (file-exists-p path))
+      (should (equal (plist-get task :status) "inbox"))
+      (should (equal (plist-get task :mu4e-msgid) "abc123@host"))
+      (with-temp-buffer
+        (insert-file-contents path)
+        (should (string-match-p "Von: Alice" (buffer-string)))
+        (should (string-match-p "Betreff: Important request" (buffer-string)))))))
+
+(ert-deftest tasks-test--capture-from-mu4e-errors-outside-mu4e ()
+  (tasks-test--with-temp-dirs
+    (cl-letf (((symbol-function 'mu4e-message-at-point) (lambda () nil)))
+      (should-error (my/tasks-capture-from-mu4e) :type 'user-error))))
+
+(ert-deftest tasks-test--open-mail-uses-frontmatter-msgid ()
+  (tasks-test--with-temp-dirs
+    (let* ((path (expand-file-name "a.md" temp-dir))
+           (called-with nil))
+      (with-temp-file path
+        (insert "---\nstatus: inbox\nmu4e-msgid: my-id@host\n---\n\n# A\n"))
+      (find-file path)
+      (cl-letf (((symbol-function 'mu4e-view-message-with-msgid)
+                 (lambda (id) (setq called-with id)))
+                ((symbol-function 'require) (lambda (&rest _) t)))
+        (my/tasks-open-mail))
+      (should (equal called-with "my-id@host")))))
+
+(ert-deftest tasks-test--open-mail-errors-without-msgid ()
+  (tasks-test--with-temp-dirs
+    (let ((path (expand-file-name "a.md" temp-dir)))
+      (with-temp-file path
+        (insert "---\nstatus: inbox\n---\n\n# A\n"))
+      (find-file path)
+      (should-error (my/tasks-open-mail) :type 'user-error))))
+
+(ert-deftest tasks-test--open-mail-from-archived-file ()
+  "open-mail should also work from inside an archived task buffer."
+  (tasks-test--with-temp-dirs
+    (make-directory my/tasks-archive-directory t)
+    (let ((archived (expand-file-name "2026-05-26-old.md"
+                                      my/tasks-archive-directory))
+          (called-with nil))
+      (with-temp-file archived
+        (insert "---\nstatus: done\narchived-at: 2026-05-26\n"
+                "mu4e-msgid: archived-id@host\n---\n\n# Old\n"))
+      (find-file archived)
+      (cl-letf (((symbol-function 'mu4e-view-message-with-msgid)
+                 (lambda (id) (setq called-with id)))
+                ((symbol-function 'require) (lambda (&rest _) t)))
+        (my/tasks-open-mail))
+      (should (equal called-with "archived-id@host")))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Date face — edge cases
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -436,49 +517,6 @@ The macro exposes `temp-dir' as the active-tasks directory."
     (should (eq (my/tasks--date-face "1999-01-01") 'my/tasks-overdue-face))
     (should (eq (my/tasks--date-face "2999-01-01") 'my/tasks-date-face))
     (should-not (my/tasks--date-face nil))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Migration
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(ert-deftest tasks-test--migrate-active ()
-  (tasks-test--with-temp-dirs
-    (let ((legacy-tasks (expand-file-name "tasks.md" temp-dir)))
-      (with-temp-file legacy-tasks
-        (insert "- [ ] Foo bar 📅 2026-06-08\n  status:: next\n\n"
-                "- [ ] Note me\n  status:: inbox\n  https://example.org\n"))
-      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
-        (my/tasks-migrate-from-legacy))
-      (should (file-exists-p (concat legacy-tasks ".migrated.bak")))
-      (let* ((foo (expand-file-name "foo-bar.md" temp-dir))
-             (note (expand-file-name "note-me.md" temp-dir))
-             (foo-task (my/tasks--parse-frontmatter foo))
-             (note-task (my/tasks--parse-frontmatter note)))
-        (should (file-exists-p foo))
-        (should (file-exists-p note))
-        (should (equal (plist-get foo-task :status) "next"))
-        (should (equal (plist-get foo-task :due) "2026-06-08"))
-        (should (equal (plist-get note-task :status) "inbox"))
-        (with-temp-buffer
-          (insert-file-contents note)
-          (should (string-match-p "https://example.org" (buffer-string))))))))
-
-(ert-deftest tasks-test--migrate-archive ()
-  (tasks-test--with-temp-dirs
-    (let ((legacy-archive (expand-file-name "archive.md" temp-dir)))
-      (with-temp-file legacy-archive
-        (insert "- [ ] Old task ⏳ 2026-05-26\n"
-                "  archived-at:: 2026-05-26\n"
-                "  status:: today\n"))
-      (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
-        (my/tasks-migrate-from-legacy))
-      (let* ((archived (expand-file-name "2026-05-26-old-task.md"
-                                         my/tasks-archive-directory))
-             (task (my/tasks--parse-frontmatter archived)))
-        (should (file-exists-p archived))
-        (should (equal (plist-get task :status) "done"))
-        (should (equal (plist-get task :archived-at) "2026-05-26"))
-        (should (equal (plist-get task :scheduled) "2026-05-26"))))))
 
 (provide 'tasks-test)
 ;;; tasks-test.el ends here

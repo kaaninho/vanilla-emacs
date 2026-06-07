@@ -231,6 +231,7 @@ Applied (committed to disk) on the next refresh or reopen.")
   (define-key map (kbd "p") #'my/tasks-set-status)
   (define-key map (kbd "x") #'my/tasks-mark-done)
   (define-key map (kbd "u") #'my/tasks-unarchive)
+  (define-key map (kbd "m") #'my/tasks-open-mail)
   (define-key map (kbd "g") #'my/tasks-view-refresh)
   (define-key map (kbd "v") #'my/tasks-view-cycle)
   (define-key map (kbd "i") #'my/tasks-show-inbox)
@@ -596,7 +597,86 @@ STATUS is the new status (defaults to `inbox')."
         (my/tasks-view-refresh)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Keybindings
+;; Mu4e integration
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(declare-function mu4e-message-at-point "mu4e" ())
+(declare-function mu4e-message-field "mu4e" (msg field))
+(declare-function mu4e-view-message-with-msgid "mu4e" (msgid))
+
+(defun my/tasks--mu4e-from-name (from)
+  "Extract a display name from FROM (mu4e's :from field, multiple versions)."
+  (cond
+   ((stringp from) from)
+   ((and (consp from) (consp (car from)))
+    (let ((first (car from)))
+      (cond
+       ;; new mu4e: plist (:name "..." :email "...")
+       ((keywordp (car first))
+        (or (plist-get first :name)
+            (plist-get first :email)
+            ""))
+       ;; old mu4e: cons (name . email)
+       ((stringp (car first)) (car first))
+       ((stringp (cdr first)) (cdr first))
+       (t ""))))
+   (t "")))
+
+(defun my/tasks--any-task-file ()
+  "Return task file at point or in buffer, including archived files."
+  (or (my/tasks--current-task-file)
+      (my/tasks--current-archived-file)))
+
+(defun my/tasks-capture-from-mu4e ()
+  "Capture a task linked to the current mu4e message.
+Saves the Message-ID in frontmatter so `my/tasks-open-mail' can jump back."
+  (interactive)
+  (let ((msg (and (fboundp 'mu4e-message-at-point)
+                  (mu4e-message-at-point))))
+    (unless msg (user-error "Not in a mu4e buffer"))
+    (let* ((msgid (mu4e-message-field msg :message-id))
+           (subject (or (mu4e-message-field msg :subject) ""))
+           (from-name (my/tasks--mu4e-from-name
+                       (mu4e-message-field msg :from)))
+           (title (read-string "Task title: " subject))
+           (slug (my/tasks--slugify title)))
+      (my/tasks--ensure-dir my/tasks-directory)
+      (let ((path (my/tasks--unique-path my/tasks-directory slug)))
+        (with-temp-buffer
+          (insert "---\n")
+          (insert "status: inbox\n")
+          (insert (format "created: %s\n" (my/tasks--now-string)))
+          (insert (format "mu4e-msgid: %s\n" (my/tasks--yaml-quote msgid)))
+          (insert "---\n\n")
+          (insert (format "# %s\n\n" title))
+          (unless (string-empty-p from-name)
+            (insert (format "Von: %s\n" from-name)))
+          (insert (format "Betreff: %s\n" subject))
+          (write-region (point-min) (point-max) path))
+        (message "Captured: %s" (file-name-nondirectory path))))))
+
+(defun my/tasks-open-mail ()
+  "Open the mu4e message linked to the task at point or in current buffer."
+  (interactive)
+  (let* ((file (my/tasks--any-task-file))
+         (msgid (when file
+                  (plist-get (my/tasks--parse-frontmatter file)
+                             :mu4e-msgid))))
+    (cond
+     ((not file) (user-error "No task at point"))
+     ((not msgid) (user-error "No `mu4e-msgid' in this task"))
+     (t
+      (require 'mu4e)
+      (mu4e-view-message-with-msgid msgid)))))
+
+(with-eval-after-load 'mu4e
+  (when (boundp 'mu4e-view-mode-map)
+    (define-key mu4e-view-mode-map (kbd "C-c t c") #'my/tasks-capture-from-mu4e))
+  (when (boundp 'mu4e-headers-mode-map)
+    (define-key mu4e-headers-mode-map (kbd "C-c t c") #'my/tasks-capture-from-mu4e)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Global keybindings
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (global-set-key (kbd "C-c t c") #'my/tasks-capture)
@@ -613,6 +693,7 @@ STATUS is the new status (defaults to `inbox')."
 (global-set-key (kbd "C-c t S") #'my/tasks-set-scheduled)
 (global-set-key (kbd "C-c t r") #'my/tasks-set-reminder)
 (global-set-key (kbd "C-c t p") #'my/tasks-set-status)
+(global-set-key (kbd "C-c t m") #'my/tasks-open-mail)
 
 (provide 'tasks)
 ;;; tasks.el ends here
