@@ -270,6 +270,101 @@ class ServerTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             self.server.edit_task("nope.md", {"title": "x"})
 
+    # --- YAML list parsing ---
+
+    def test_parse_inline_flow_list(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text("---\nstatus: inbox\ntags: [work, urgent]\n---\n\n# T\n")
+        t = self.server.parse_task(p)
+        self.assertEqual(t["status"], "inbox")
+        self.assertEqual(t["tags"], ["work", "urgent"])
+
+    def test_parse_block_list(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text(
+            "---\nstatus: inbox\ntags:\n  - work\n  - urgent\n---\n\n# T\n")
+        t = self.server.parse_task(p)
+        self.assertEqual(t["status"], "inbox")
+        self.assertEqual(t["tags"], ["work", "urgent"])
+
+    def test_parse_block_list_quoted_items(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text(
+            "---\nstatus: inbox\ncontexts:\n"
+            '  - "@work"\n  - "@phone"\n---\n\n# T\n')
+        t = self.server.parse_task(p)
+        self.assertEqual(t["contexts"], ["@work", "@phone"])
+
+    def test_parse_empty_flow_list(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text("---\nstatus: inbox\ntags: []\n---\n\n# T\n")
+        t = self.server.parse_task(p)
+        self.assertEqual(t["tags"], [])
+
+    def test_parse_list_followed_by_scalar(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text(
+            "---\nstatus: inbox\ntags:\n  - a\n  - b\n"
+            "due: 2026-06-08\n---\n\n# T\n")
+        t = self.server.parse_task(p)
+        self.assertEqual(t["tags"], ["a", "b"])
+        self.assertEqual(t["due"], "2026-06-08")
+
+    def test_parse_coerces_scalar_status_from_block_list(self):
+        """Obsidian's List property type → single-item block list."""
+        p = self.tasks_dir / "t.md"
+        p.write_text("---\nstatus:\n  - next\n---\n\n# T\n")
+        t = self.server.parse_task(p)
+        self.assertEqual(t["status"], "next")
+        self.assertIsInstance(t["status"], str)
+
+    def test_parse_coerces_scalar_due_from_flow_list(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text(
+            "---\nstatus: inbox\ndue: [2026-06-08]\n---\n\n# T\n")
+        t = self.server.parse_task(p)
+        self.assertEqual(t["due"], "2026-06-08")
+        self.assertIsInstance(t["due"], str)
+
+    def test_parse_keeps_true_list_fields(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text(
+            "---\nstatus: inbox\ntags:\n  - work\n  - urgent\n---\n\n# T\n")
+        t = self.server.parse_task(p)
+        self.assertEqual(t["status"], "inbox")
+        self.assertEqual(t["tags"], ["work", "urgent"])
+
+    def test_update_property_removes_block_list(self):
+        p = self.tasks_dir / "a.md"
+        p.write_text(
+            "---\nstatus: inbox\ntags:\n  - a\n  - b\n"
+            "due: 2026-06-08\n---\n\n# T\n")
+        self.server.update_property(p, "tags", None)
+        text = p.read_text()
+        self.assertNotIn("tags:", text)
+        self.assertNotIn("- a", text)
+        self.assertNotIn("- b", text)
+        self.assertIn("status: inbox", text)
+        self.assertIn("due: 2026-06-08", text)
+
+    def test_update_property_replaces_block_list_with_scalar(self):
+        p = self.tasks_dir / "a.md"
+        p.write_text(
+            "---\nstatus: inbox\ntags:\n  - a\n  - b\n---\n\n# T\n")
+        self.server.update_property(p, "tags", "single")
+        text = p.read_text()
+        self.assertIn("tags: single", text)
+        self.assertNotIn("- a", text)
+        self.assertNotIn("- b", text)
+
+    def test_unquote_yaml(self):
+        f = self.server.unquote_yaml
+        self.assertEqual(f("plain"), "plain")
+        self.assertEqual(f('"quoted"'), "quoted")
+        self.assertEqual(f("'single'"), "single")
+        self.assertEqual(f('"with \\"escape\\""'), 'with "escape"')
+        self.assertEqual(f(""), "")
+
 
 if __name__ == "__main__":
     unittest.main()

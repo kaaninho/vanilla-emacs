@@ -38,11 +38,58 @@ ALLOWED_STATUSES = {"inbox", "next", "today", "waiting", "someday", "done"}
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 PROP_RE = re.compile(r"^([a-z][a-z0-9_-]*):\s*(.*?)\s*$")
 H1_RE = re.compile(r"^# (.*?)$", re.MULTILINE)
+BLOCK_ITEM_RE = re.compile(r"^[ \t]+- *(.*?)\s*$")
 EDITABLE_PROPERTIES = ("due", "scheduled", "reminder", "project")
+
+# Frontmatter keys treated as scalar strings even when YAML stores a list.
+# Obsidian's Properties UI can write a logically-scalar field as a
+# one-element block list when the property type is "List".
+SCALAR_PROPERTY_KEYS = {
+    "status", "due", "scheduled", "reminder", "project",
+    "created", "archived-at", "mu4e-msgid",
+}
+
+
+def unquote_yaml(s):
+    """Strip surrounding single/double quotes from a YAML scalar."""
+    s = s.strip()
+    if len(s) >= 2:
+        if s[0] == '"' == s[-1]:
+            return s[1:-1].replace('\\"', '"')
+        if s[0] == "'" == s[-1]:
+            return s[1:-1]
+    return s
+
+
+def parse_flow_list(raw):
+    """Parse `[a, b, c]` inline list. Returns the list, or None if RAW
+    is not a flow list. Empty `[]` returns []."""
+    m = re.match(r"\A\[(.*)\]\Z", raw)
+    if not m:
+        return None
+    inner = m.group(1).strip()
+    if not inner:
+        return []
+    return [unquote_yaml(x) for x in inner.split(",")]
+
+
+def coerce_scalar_properties(props):
+    """Collapse single-item list values of SCALAR_PROPERTY_KEYS in PROPS
+    down to the first item."""
+    for k in SCALAR_PROPERTY_KEYS:
+        v = props.get(k)
+        if isinstance(v, list) and v:
+            props[k] = v[0]
+    return props
 
 
 def parse_task(path):
-    """Parse YAML frontmatter + H1 from PATH. Return dict or None."""
+    """Parse YAML frontmatter + H1 from PATH. Return dict or None.
+
+    Scalar values become strings; YAML arrays (inline `[a, b]` or block
+    `  - a\\n  - b`) become Python lists. Known-scalar fields are coerced
+    back to strings when written as single-item lists.
+    """
     try:
         content = path.read_text(encoding="utf-8")
     except OSError:
@@ -50,14 +97,34 @@ def parse_task(path):
     m = FRONTMATTER_RE.match(content)
     if not m:
         return None
+
     props = {}
-    for line in m.group(1).split("\n"):
-        mp = PROP_RE.match(line)
-        if mp:
-            k, v = mp.group(1), mp.group(2)
-            if v.startswith('"') and v.endswith('"'):
-                v = v[1:-1].replace('\\"', '"')
-            props[k] = v
+    lines = m.group(1).split("\n")
+    i = 0
+    while i < len(lines):
+        mp = PROP_RE.match(lines[i])
+        if not mp:
+            i += 1
+            continue
+        key, raw = mp.group(1), mp.group(2)
+        i += 1
+        if not raw:
+            items = []
+            while i < len(lines):
+                mi = BLOCK_ITEM_RE.match(lines[i])
+                if not mi:
+                    break
+                items.append(unquote_yaml(mi.group(1)))
+                i += 1
+            props[key] = items if items else ""
+        elif raw.startswith("["):
+            flow = parse_flow_list(raw)
+            props[key] = flow if flow is not None else raw
+        else:
+            props[key] = unquote_yaml(raw)
+
+    coerce_scalar_properties(props)
+
     body = content[m.end():]
     mh = H1_RE.search(body)
     props["title"] = mh.group(1).strip() if mh else path.stem
@@ -89,7 +156,9 @@ def yaml_quote(value):
 def update_property(path, key, value):
     """Set/replace/remove KEY in the frontmatter at PATH.
 
-    VALUE of None or "" removes the property.
+    VALUE of None or "" removes the property. When the key holds a
+    block-style list (indented `- item' lines below), those lines are
+    removed/replaced along with the header line.
     """
     content = path.read_text(encoding="utf-8")
     m = FRONTMATTER_RE.match(content)
@@ -99,9 +168,15 @@ def update_property(path, key, value):
     new_lines = []
     found = False
     key_re = re.compile(rf"^{re.escape(key)}:")
+    skip_block = False
     for line in fm_lines:
+        if skip_block:
+            if BLOCK_ITEM_RE.match(line):
+                continue
+            skip_block = False
         if key_re.match(line):
             found = True
+            skip_block = True   # swallow any block-list items that follow
             if value:
                 new_lines.append(f"{key}: {yaml_quote(value)}")
         else:
