@@ -36,6 +36,18 @@ Konfiguration via Env-Variablen:
   - `r` Reload
   - `Esc` Modal schließen
 
+## Frontend bauen
+
+`app.js` wird aus `app.ts` (TypeScript) generiert. Falls du das
+Frontend änderst:
+
+```sh
+tsc
+```
+
+Im selben Verzeichnis. Erzeugt das aktuelle `app.js` neben `app.ts`.
+Der Server serviert immer `app.js`.
+
 ## Architektur
 
 - `server.py` — Python-3-HTTP-Server (nur stdlib), serviert statische
@@ -52,7 +64,8 @@ Konfiguration via Env-Variablen:
     reminder?, project?}` (atomarer Multi-Feld-Edit; nicht
     übergebene Keys bleiben unverändert, leere Strings entfernen
     YAML-Properties)
-- `index.html` / `style.css` / `app.js` — statisches Frontend, kein
-  Build-Step.
+- `app.ts` — TypeScript-Quelle des Frontends, mit Typen für `Task`,
+  Status etc. Kompiliert via `tsc` (TypeScript 5+) zu `app.js`.
+- `index.html` / `style.css` / `app.js` — statisches Frontend.
 
 Bindet nur an `127.0.0.1`, also nur lokal erreichbar.
