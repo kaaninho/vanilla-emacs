@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tasks</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Tasks</h1>
+    <div class="actions">
+      <input id="capture-input" placeholder="Neue Task (Enter)" autofocus>
+      <input id="search-input" placeholder="Suche …">
+      <button id="refresh-btn" title="Reload (auto every 30s)">↻</button>
+      <button id="toggle-archive-btn">📦 Archiv</button>
+    </div>
+  </header>
+  <main id="board" class="board"></main>
+
+  <div id="modal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <form id="edit-form" class="modal-content">
+      <h2>Task bearbeiten</h2>
+      <label>Titel
+        <input name="title" type="text" required autocomplete="off">
+      </label>
+      <div class="row">
+        <label>Status
+          <select name="status">
+            <option value="inbox">Inbox</option>
+            <option value="today">Today</option>
+            <option value="next">Next</option>
+            <option value="waiting">Waiting</option>
+            <option value="someday">Someday</option>
+          </select>
+        </label>
+        <label>Projekt
+          <input name="project" type="text" placeholder="[[Projekt X]]" autocomplete="off">
+        </label>
+      </div>
+      <div class="row">
+        <label>Fällig (Due) 📅
+          <input name="due" type="date">
+        </label>
+        <label>Geplant (Scheduled) ⏳
+          <input name="scheduled" type="date">
+        </label>
+      </div>
+      <label>Erinnerung (Reminder) ⏰
+        <input name="reminder" type="datetime-local">
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="modal-archive-btn" class="danger">📦 Archivieren</button>
+        <span class="spacer"></span>
+        <button type="button" id="modal-cancel-btn">Abbrechen</button>
+        <button type="submit">Speichern</button>
+      </div>
+    </form>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="/app.js"></script>
+</body>
+</html>
