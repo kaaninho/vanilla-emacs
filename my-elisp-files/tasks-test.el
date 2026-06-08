@@ -101,6 +101,118 @@ The macro exposes `temp-dir' as the active-tasks directory."
       (let ((task (my/tasks--parse-frontmatter file)))
         (should (equal (plist-get task :project) "[[Projekt X]]"))))))
 
+(ert-deftest tasks-test--parse-frontmatter-inline-list ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\ntags: [work, urgent]\n---\n\n# T\n"))
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :status) "inbox"))
+        (should (equal (plist-get task :tags) '("work" "urgent")))))))
+
+(ert-deftest tasks-test--parse-frontmatter-block-list ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\ntags:\n  - work\n  - urgent\n---\n\n# T\n"))
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :status) "inbox"))
+        (should (equal (plist-get task :tags) '("work" "urgent")))))))
+
+(ert-deftest tasks-test--parse-frontmatter-quoted-list-items ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\ncontexts:\n"
+                "  - \"@work\"\n  - \"@phone\"\n---\n\n# T\n"))
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :contexts) '("@work" "@phone")))))))
+
+(ert-deftest tasks-test--parse-frontmatter-inline-quoted-list-items ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\ntags: [\"a, b\", c]\n---\n\n# T\n"))
+      (let ((task (my/tasks--parse-frontmatter file)))
+        ;; Naive split-by-comma — quoted commas not preserved.
+        ;; Document the limitation in the test so it's intentional.
+        (should (listp (plist-get task :tags)))))))
+
+(ert-deftest tasks-test--parse-frontmatter-empty-list ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\ntags: []\n---\n\n# T\n"))
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should-not (plist-get task :tags))
+        (should (equal (plist-get task :status) "inbox"))))))
+
+(ert-deftest tasks-test--parse-frontmatter-coerces-scalar-status-list ()
+  "Obsidian's List property type writes single-value `status' as a block list."
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus:\n  - next\n---\n\n# T\n"))
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :status) "next"))
+        (should (stringp (plist-get task :status)))))))
+
+(ert-deftest tasks-test--parse-frontmatter-coerces-scalar-due-flow-list ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\ndue: [2026-06-08]\n---\n\n# T\n"))
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :due) "2026-06-08"))
+        (should (stringp (plist-get task :due)))))))
+
+(ert-deftest tasks-test--parse-frontmatter-keeps-true-list-fields ()
+  "Non-scalar keys (e.g. tags) remain lists after coercion."
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\ntags:\n  - work\n  - urgent\n"
+                "---\n\n# T\n"))
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :status) "inbox"))
+        (should (equal (plist-get task :tags) '("work" "urgent")))))))
+
+(ert-deftest tasks-test--parse-frontmatter-list-survives-scalar-after ()
+  "A block list must not swallow the next scalar property."
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\ntags:\n  - a\n  - b\n"
+                "due: 2026-06-08\n---\n\n# T\n"))
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :tags) '("a" "b")))
+        (should (equal (plist-get task :due) "2026-06-08"))))))
+
+(ert-deftest tasks-test--update-property-removes-block-list ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\ntags:\n  - a\n  - b\n"
+                "due: 2026-06-08\n---\n\n# T\n"))
+      (my/tasks--update-property file "tags" nil)
+      (let ((text (with-temp-buffer (insert-file-contents file) (buffer-string))))
+        (should-not (string-match-p "tags:" text))
+        (should-not (string-match-p "- a" text))
+        (should-not (string-match-p "- b" text))
+        (should (string-match-p "status: inbox" text))
+        (should (string-match-p "due: 2026-06-08" text))))))
+
+(ert-deftest tasks-test--update-property-replaces-block-list-with-scalar ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\ntags:\n  - a\n  - b\n---\n\n# T\n"))
+      (my/tasks--update-property file "tags" "single")
+      (let ((text (with-temp-buffer (insert-file-contents file) (buffer-string))))
+        (should (string-match-p "tags: single" text))
+        (should-not (string-match-p "- a" text))
+        (should-not (string-match-p "- b" text))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Capture
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

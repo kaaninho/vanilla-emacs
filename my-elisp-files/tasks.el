@@ -80,8 +80,49 @@
 ;; Frontmatter
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defconst my/tasks--scalar-property-keys
+  '(:status :due :scheduled :reminder :project :created :archived-at
+    :mu4e-msgid)
+  "Frontmatter keys treated as scalar strings even when YAML stores a list.
+Obsidian's Properties UI can write a logically-scalar field as a
+one-element block list; this normalises that back to a string.")
+
+(defun my/tasks--coerce-scalar-properties (props)
+  "Collapse single-item list values of `my/tasks--scalar-property-keys'
+in PROPS down to their first item. Returns the (possibly updated) plist."
+  (dolist (key my/tasks--scalar-property-keys)
+    (let ((val (plist-get props key)))
+      (when (consp val)
+        (setq props (plist-put props key (car val))))))
+  props)
+
+(defun my/tasks--unquote-yaml (s)
+  "Strip surrounding single or double quotes from a YAML scalar S."
+  (let ((s (string-trim (or s ""))))
+    (cond
+     ((and (>= (length s) 2)
+           (string-prefix-p "\"" s) (string-suffix-p "\"" s))
+      (replace-regexp-in-string "\\\\\"" "\""
+                                (substring s 1 (1- (length s)))))
+     ((and (>= (length s) 2)
+           (string-prefix-p "'" s) (string-suffix-p "'" s))
+      (substring s 1 (1- (length s))))
+     (t s))))
+
+(defun my/tasks--parse-flow-list (raw)
+  "Parse YAML inline list \"[a, b, c]\" from RAW.
+Return the list of unquoted items, or nil if RAW is not a flow list.
+\"[]\" returns nil (empty list)."
+  (when (string-match "\\`\\[\\(.*\\)\\]\\'" raw)
+    (let ((inner (string-trim (match-string 1 raw))))
+      (unless (string-empty-p inner)
+        (mapcar #'my/tasks--unquote-yaml
+                (split-string inner "," t " *"))))))
+
 (defun my/tasks--parse-frontmatter (file)
-  "Parse YAML frontmatter and H1 title from FILE. Return a plist."
+  "Parse YAML frontmatter and H1 title from FILE. Return a plist.
+Scalar properties become strings; YAML arrays (both inline \"[a, b]\"
+and block style \"  - a\\n  - b\") become Lisp lists of strings."
   (with-temp-buffer
     (insert-file-contents file)
     (goto-char (point-min))
@@ -89,20 +130,39 @@
       (when (looking-at "^---\n")
         (forward-line 1)
         (while (and (not (looking-at "^---")) (not (eobp)))
-          (when (looking-at "^\\([a-z][a-z0-9_-]*\\): *\\(.*?\\) *$")
-            (let ((key (intern (concat ":" (match-string 1))))
-                  (val (match-string 2)))
-              (when (string-match "\\`\"\\(.*\\)\"\\'" val)
-                (setq val (replace-regexp-in-string "\\\\\"" "\"" (match-string 1 val))))
-              (setq props (plist-put props key val))))
-          (forward-line 1))
+          (if (looking-at "^\\([a-z][a-z0-9_-]*\\): *\\(.*?\\) *$")
+              (let ((key (intern (concat ":" (match-string 1))))
+                    (raw (match-string 2)))
+                (forward-line 1)
+                (cond
+                 ;; Empty value → look for block-style list under it
+                 ((string-empty-p raw)
+                  (let (items)
+                    (while (looking-at "^[[:space:]]+- *\\(.*?\\) *$")
+                      (push (my/tasks--unquote-yaml (match-string 1)) items)
+                      (forward-line 1))
+                    (setq props (plist-put props key
+                                           (if items (nreverse items) "")))))
+                 ;; Inline flow list "[a, b]"
+                 ((string-prefix-p "[" raw)
+                  (setq props (plist-put props key
+                                         (my/tasks--parse-flow-list raw))))
+                 ;; Scalar
+                 (t
+                  (setq props (plist-put props key
+                                         (my/tasks--unquote-yaml raw))))))
+            (forward-line 1)))
         (when (looking-at "^---") (forward-line 1)))
       (when (re-search-forward "^# \\(.*\\)$" nil t)
         (setq title (string-trim (match-string 1))))
-      (plist-put props :title (or title (file-name-base file))))))
+      (setq props (plist-put props :title
+                             (or title (file-name-base file))))
+      (my/tasks--coerce-scalar-properties props))))
 
 (defun my/tasks--update-property (file key value)
-  "Set KEY to VALUE in FILE's YAML frontmatter. Add if missing, remove if empty."
+  "Set KEY to VALUE in FILE's YAML frontmatter. Add if missing, remove if empty.
+When the key currently holds a block-style list (indented `- item' lines),
+those lines are removed/replaced along with the matched header line."
   (let ((buf (find-file-noselect file)))
     (with-current-buffer buf
       (save-excursion
@@ -115,14 +175,23 @@
                             (line-beginning-position))))
                (found (re-search-forward
                        (format "^%s: *.*$" (regexp-quote key)) closing t)))
-          (cond
-           ((and (or (null value) (string-empty-p value)) found)
-            (delete-region (line-beginning-position) (1+ (line-end-position))))
-           (found
-            (replace-match (format "%s: %s" key (my/tasks--yaml-quote value)) t t))
-           ((and value (not (string-empty-p value)))
-            (goto-char closing)
-            (insert (format "%s: %s\n" key (my/tasks--yaml-quote value)))))))
+          (if found
+              (let ((line-start (line-beginning-position))
+                    (delete-end (1+ (line-end-position))))
+                ;; Extend deletion across following block-list items
+                (save-excursion
+                  (forward-line 1)
+                  (while (and (< (point) (or closing (point-max)))
+                              (looking-at "^[[:space:]]+- "))
+                    (forward-line 1)
+                    (setq delete-end (point))))
+                (delete-region line-start delete-end)
+                (when (and value (not (string-empty-p value)))
+                  (goto-char line-start)
+                  (insert (format "%s: %s\n" key (my/tasks--yaml-quote value)))))
+            (when (and value (not (string-empty-p value)))
+              (goto-char closing)
+              (insert (format "%s: %s\n" key (my/tasks--yaml-quote value)))))))
       (save-buffer))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
