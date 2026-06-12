@@ -267,6 +267,10 @@ those lines are removed/replaced along with the matched header line."
   "Alist of (FILE . NEW-STATUS) status changes queued in this view.
 Applied (committed to disk) on the next refresh or reopen.")
 
+(defvar-local my/tasks-expanded-files nil
+  "List of task file paths whose body is inlined under their entry.
+Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
+
 (defvar my/tasks-views-cycle-list
   '((my/tasks-show-inbox . "*Inbox*")
     (my/tasks-show-today . "*Today*")
@@ -293,6 +297,8 @@ Applied (committed to disk) on the next refresh or reopen.")
 (let ((map my/tasks-mode-map))
   (setcdr map nil)
   (define-key map (kbd "RET") #'my/tasks-view-open-at-point)
+  (define-key map (kbd "TAB") #'my/tasks-toggle-expand-at-point)
+  (define-key map (kbd "<tab>") #'my/tasks-toggle-expand-at-point)
   (define-key map (kbd "t") #'my/tasks-toggle-today)
   (define-key map (kbd "d") #'my/tasks-set-due)
   (define-key map (kbd "s") #'my/tasks-set-scheduled)
@@ -389,6 +395,35 @@ Inherits the header colour so the bullet matches `my/tasks-header-face'.")
          (t
           (my/tasks--update-property file "status" new-status)))))))
 
+(defun my/tasks--read-body (file)
+  "Return FILE's body text (everything after YAML frontmatter and H1 title).
+Trimmed; returns empty string when there is no body."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (goto-char (point-min))
+    (when (looking-at "^---\n")
+      (forward-line 1)
+      (when (re-search-forward "^---$" nil t)
+        (forward-line 1)))
+    (while (and (not (eobp)) (looking-at "^[[:space:]]*$"))
+      (forward-line 1))
+    (when (looking-at "^# .*$")
+      (forward-line 1))
+    (while (and (not (eobp)) (looking-at "^[[:space:]]*$"))
+      (forward-line 1))
+    (string-trim (buffer-substring-no-properties (point) (point-max)))))
+
+(defun my/tasks--goto-task-by-file (file)
+  "Move point to FILE's task line in the current view. Return non-nil on success."
+  (when file
+    (let ((found nil))
+      (goto-char (point-min))
+      (while (and (not (eobp)) (not found))
+        (when (equal (get-text-property (point) 'my/task-file) file)
+          (setq found (point)))
+        (unless found (forward-line 1)))
+      (when found (goto-char found) t))))
+
 (defun my/tasks--draw-view-content (display-title tasks query-fn arg)
   "Insert view content with TASKS into current buffer.
 Uses the buffer-local `my/tasks-pending-changes' for annotations."
@@ -410,8 +445,10 @@ Uses the buffer-local `my/tasks-pending-changes' for annotations."
                (project (plist-get task :project))
                (file (plist-get task :file))
                (pending (cdr (assoc file my/tasks-pending-changes)))
+               (expanded (member file my/tasks-expanded-files))
                (start (point)))
-          (insert (propertize "▸ " 'face 'my/tasks-bullet-face))
+          (insert (propertize (if expanded "▾ " "▸ ")
+                              'face 'my/tasks-bullet-face))
           (insert (propertize title 'face 'my/tasks-title-face))
           (when scheduled
             (insert (propertize (format "  ⏳ %s" scheduled)
@@ -429,7 +466,15 @@ Uses the buffer-local `my/tasks-pending-changes' for annotations."
             (insert (propertize (format "  → %s" pending)
                                 'face 'my/tasks-pending-face)))
           (insert "\n")
-          (add-text-properties start (1- (point)) (list 'my/task-file file))))
+          (add-text-properties start (1- (point)) (list 'my/task-file file))
+          (when expanded
+            (let* ((body (my/tasks--read-body file))
+                   (body-start (point)))
+              (unless (string-empty-p body)
+                (insert (replace-regexp-in-string "^" "    " body))
+                (insert "\n")
+                (add-text-properties body-start (point)
+                                     (list 'my/task-file file)))))))
     (insert (propertize "Keine Tasks." 'face 'shadow))
     (insert "\n"))
   (goto-char (or (next-single-property-change (point-min) 'my/task-file)
@@ -455,13 +500,15 @@ Uses the buffer-local `my/tasks-pending-changes' for annotations."
   "Redraw the current view (uncommitted pending changes are kept and shown)."
   (when my/tasks-view-query
     (let* ((pt (point))
+           (current-file (my/tasks--file-at-point))
            (display-title (replace-regexp-in-string "\\*" "" (buffer-name)))
            (tasks (if my/tasks-view-query-arg
                       (funcall my/tasks-view-query my/tasks-view-query-arg)
                     (funcall my/tasks-view-query))))
       (my/tasks--draw-view-content display-title tasks
                                    my/tasks-view-query my/tasks-view-query-arg)
-      (goto-char (min pt (point-max))))))
+      (unless (my/tasks--goto-task-by-file current-file)
+        (goto-char (min pt (point-max)))))))
 
 (defun my/tasks--queue-status-change (file new-status)
   "Queue a status change for FILE → NEW-STATUS in the current view buffer."
@@ -535,6 +582,19 @@ Excludes files inside the archive directory — operate on those via `my/tasks-u
   (interactive)
   (let ((file (my/tasks--file-at-point)))
     (if file (find-file file) (message "No task at point."))))
+
+(defun my/tasks-toggle-expand-at-point ()
+  "Toggle inline expansion of the task at point.
+When expanded, the task's body (everything after frontmatter and H1) is
+shown indented underneath the entry and the bullet flips from ▸ to ▾."
+  (interactive)
+  (let ((file (my/tasks--file-at-point)))
+    (unless file (user-error "No task at point"))
+    (setq my/tasks-expanded-files
+          (if (member file my/tasks-expanded-files)
+              (delete file my/tasks-expanded-files)
+            (cons file my/tasks-expanded-files)))
+    (my/tasks--redraw-view)))
 
 (defun my/tasks--apply-and-redraw (fn &rest args)
   "Apply FN with (file . ARGS) to task at point, then redraw the view.
