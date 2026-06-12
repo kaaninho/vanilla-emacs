@@ -13,6 +13,7 @@ const $ = (id) => document.getElementById(id);
 const board = $("board");
 const captureInput = $("capture-input");
 const searchInput = $("search-input");
+const contextFilterSelect = $("context-filter");
 const refreshBtn = $("refresh-btn");
 const archiveBtn = $("toggle-archive-btn");
 const toast = $("toast");
@@ -20,11 +21,14 @@ const modal = $("modal");
 const editForm = $("edit-form");
 const modalCancelBtn = $("modal-cancel-btn");
 const modalArchiveBtn = $("modal-archive-btn");
+const contextsCheckboxes = $("contexts-checkboxes");
 let showingArchive = false;
 let allTasks = [];
 let searchTerm = "";
 let editingFile = null;
 let toastTimer;
+let availableContexts = [];
+let contextFilter = "";
 // --- API ---
 async function api(path, opts = {}) {
     const r = await fetch(path, {
@@ -73,11 +77,20 @@ function showToast(msg, isError = false) {
 function matchesSearch(task) {
     if (!searchTerm)
         return true;
-    const hay = [task.title, task.project, task.due, task.scheduled]
+    const ctxStr = Array.isArray(task.contexts) ? task.contexts.join(" ") : "";
+    const hay = [task.title, task.project, task.due, task.scheduled, ctxStr]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
     return hay.includes(searchTerm);
+}
+function matchesContextFilter(task) {
+    if (!contextFilter)
+        return true;
+    return Array.isArray(task.contexts) && task.contexts.includes(contextFilter);
+}
+function cardVisible(task) {
+    return matchesSearch(task) && matchesContextFilter(task);
 }
 // --- Rendering ---
 function makeBtn(label, title, handler) {
@@ -125,6 +138,14 @@ function renderCard(task) {
         el.textContent = task.project;
         meta.appendChild(el);
     }
+    if (Array.isArray(task.contexts)) {
+        for (const c of task.contexts) {
+            const el = document.createElement("span");
+            el.className = "context";
+            el.textContent = c;
+            meta.appendChild(el);
+        }
+    }
     if (showingArchive && task["archived-at"]) {
         const el = document.createElement("span");
         el.className = "date";
@@ -156,7 +177,7 @@ function renderCard(task) {
         card.draggable = false;
     }
     card.addEventListener("click", () => openEditModal(task));
-    if (!matchesSearch(task))
+    if (!cardVisible(task))
         card.classList.add("hidden");
     return card;
 }
@@ -252,6 +273,40 @@ async function load() {
         showToast(err.message, true);
     }
 }
+// --- Contexts ---
+async function loadContexts() {
+    try {
+        availableContexts = await api("/api/contexts");
+    }
+    catch {
+        availableContexts = [];
+    }
+    populateContextFilter();
+    renderContextsCheckboxes([]);
+}
+function populateContextFilter() {
+    const current = contextFilterSelect.value;
+    contextFilterSelect.innerHTML =
+        '<option value="">Alle Kontexte</option>' +
+            availableContexts
+                .map((c) => `<option value="${c}">${c}</option>`)
+                .join("");
+    contextFilterSelect.value = current;
+}
+function renderContextsCheckboxes(selected) {
+    contextsCheckboxes.innerHTML = "";
+    for (const ctx of availableContexts) {
+        const label = document.createElement("label");
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.name = "ctx";
+        cb.value = ctx;
+        cb.checked = selected.includes(ctx);
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(" " + ctx));
+        contextsCheckboxes.appendChild(label);
+    }
+}
 // --- Edit modal ---
 function formField(name) {
     return editForm.elements.namedItem(name);
@@ -270,6 +325,7 @@ function openEditModal(task) {
         ? task.reminder.replace(" ", "T").slice(0, 16)
         : "";
     formField("project").value = task.project || "";
+    renderContextsCheckboxes(Array.isArray(task.contexts) ? task.contexts : []);
     modal.classList.remove("hidden");
     modal.setAttribute("aria-hidden", "false");
     titleEl.focus();
@@ -286,6 +342,7 @@ editForm.addEventListener("submit", async (e) => {
         return;
     const fd = new FormData(editForm);
     const rem = (fd.get("reminder") ?? "").toString();
+    const checked = contextsCheckboxes.querySelectorAll('input[name="ctx"]:checked');
     const payload = {
         file: editingFile,
         title: (fd.get("title") ?? "").toString().trim(),
@@ -294,6 +351,7 @@ editForm.addEventListener("submit", async (e) => {
         scheduled: (fd.get("scheduled") ?? "").toString(),
         reminder: rem ? rem.replace("T", " ") : "",
         project: (fd.get("project") ?? "").toString().trim(),
+        contexts: Array.from(checked).map((b) => b.value),
     };
     if (!payload.title) {
         showToast("Titel darf nicht leer sein", true);
@@ -320,13 +378,20 @@ captureInput.addEventListener("keydown", async (e) => {
         await doAction(() => postJSON("/api/capture", { title }), "Captured");
     }
 });
-searchInput.addEventListener("input", () => {
-    searchTerm = searchInput.value.trim().toLowerCase();
+function applyCardVisibility() {
     document.querySelectorAll(".card").forEach((c) => {
         const file = c.dataset.file;
         const t = allTasks.find((x) => x.file === file);
-        c.classList.toggle("hidden", !t || !matchesSearch(t));
+        c.classList.toggle("hidden", !t || !cardVisible(t));
     });
+}
+searchInput.addEventListener("input", () => {
+    searchTerm = searchInput.value.trim().toLowerCase();
+    applyCardVisibility();
+});
+contextFilterSelect.addEventListener("change", () => {
+    contextFilter = contextFilterSelect.value;
+    applyCardVisibility();
 });
 refreshBtn.addEventListener("click", () => {
     void load();
@@ -364,4 +429,7 @@ setInterval(() => {
     if (!document.hidden)
         void load();
 }, 30000);
-void load();
+void (async () => {
+    await loadContexts();
+    await load();
+})();

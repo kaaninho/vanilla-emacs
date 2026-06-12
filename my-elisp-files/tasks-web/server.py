@@ -49,6 +49,9 @@ SCALAR_PROPERTY_KEYS = {
     "created", "archived-at", "mu4e-msgid",
 }
 
+# Fixed GTD contexts. Mirror of Elisp's `my/tasks-contexts'.
+CONTEXTS = ["@home", "@work", "@phone", "@computer", "@errands", "@reading"]
+
 
 def unquote_yaml(s):
     """Strip surrounding single/double quotes from a YAML scalar."""
@@ -229,8 +232,51 @@ def edit_task(name, fields):
     for k in EDITABLE_PROPERTIES:
         if k in fields:
             update_property(src, k, fields[k] or None)
+    if "contexts" in fields:
+        values = fields["contexts"] or []
+        if not isinstance(values, list):
+            raise ValueError("contexts must be a list")
+        update_list_property(src, "contexts", values)
     if "status" in fields:
         set_status(name, fields["status"])
+
+
+def update_list_property(path, key, values):
+    """Replace KEY in PATH's frontmatter with a YAML block list of VALUES.
+
+    Empty/None VALUES removes the property entirely. Replaces an
+    existing scalar or block-list value.
+    """
+    content = path.read_text(encoding="utf-8")
+    m = FRONTMATTER_RE.match(content)
+    if not m:
+        raise ValueError(f"No frontmatter in {path}")
+    fm_lines = m.group(1).split("\n")
+    new_lines = []
+    found = False
+    key_re = re.compile(rf"^{re.escape(key)}:")
+    skip_block = False
+    for line in fm_lines:
+        if skip_block:
+            if BLOCK_ITEM_RE.match(line):
+                continue
+            skip_block = False
+        if key_re.match(line):
+            found = True
+            skip_block = True
+            if values:
+                new_lines.append(f"{key}:")
+                for v in values:
+                    new_lines.append(f"  - {yaml_quote(v)}")
+        else:
+            new_lines.append(line)
+    if not found and values:
+        new_lines.append(f"{key}:")
+        for v in values:
+            new_lines.append(f"  - {yaml_quote(v)}")
+    new_fm = "\n".join(new_lines)
+    path.write_text(content[:m.start(1)] + new_fm + content[m.end(1):],
+                    encoding="utf-8")
 
 
 def slugify(title):
@@ -376,6 +422,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, list_tasks(TASKS_DIR))
         elif path == "/api/tasks/archive":
             self._send_json(200, list_tasks(ARCHIVE_DIR))
+        elif path == "/api/contexts":
+            self._send_json(200, CONTEXTS)
         else:
             self.send_error(404)
 

@@ -357,6 +357,56 @@ class ServerTests(unittest.TestCase):
         self.assertNotIn("- a", text)
         self.assertNotIn("- b", text)
 
+    # --- update_list_property + contexts ---
+
+    def test_update_list_property_writes_block(self):
+        p = self.tasks_dir / "a.md"
+        p.write_text("---\nstatus: inbox\n---\n\n# T\n")
+        self.server.update_list_property(p, "contexts", ["@work", "@computer"])
+        text = p.read_text()
+        self.assertIn('contexts:\n  - "@work"\n  - "@computer"', text)
+        self.assertEqual(
+            self.server.parse_task(p)["contexts"], ["@work", "@computer"])
+
+    def test_update_list_property_removes(self):
+        p = self.tasks_dir / "a.md"
+        p.write_text(
+            "---\nstatus: inbox\ncontexts:\n"
+            '  - "@work"\n  - "@home"\n'
+            "due: 2026-06-08\n---\n\n# T\n")
+        self.server.update_list_property(p, "contexts", [])
+        text = p.read_text()
+        self.assertNotIn("contexts:", text)
+        self.assertNotIn("@work", text)
+        self.assertIn("status: inbox", text)
+        self.assertIn("due: 2026-06-08", text)
+
+    def test_update_list_property_replaces_scalar(self):
+        p = self.tasks_dir / "a.md"
+        p.write_text("---\nstatus: inbox\ncontexts: stale\n---\n\n# T\n")
+        self.server.update_list_property(p, "contexts", ["@a"])
+        self.assertEqual(self.server.parse_task(p)["contexts"], ["@a"])
+
+    def test_edit_task_sets_contexts(self):
+        p = self.tasks_dir / "a.md"
+        p.write_text("---\nstatus: inbox\n---\n\n# T\n")
+        self.server.edit_task("a.md", {"contexts": ["@work", "@phone"]})
+        self.assertEqual(
+            self.server.parse_task(p)["contexts"], ["@work", "@phone"])
+
+    def test_edit_task_clears_contexts(self):
+        p = self.tasks_dir / "a.md"
+        p.write_text(
+            "---\nstatus: inbox\ncontexts:\n  - \"@work\"\n---\n\n# T\n")
+        self.server.edit_task("a.md", {"contexts": []})
+        self.assertNotIn("contexts:", p.read_text())
+
+    def test_edit_task_contexts_rejects_non_list(self):
+        p = self.tasks_dir / "a.md"
+        p.write_text("---\nstatus: inbox\n---\n\n# T\n")
+        with self.assertRaises(ValueError):
+            self.server.edit_task("a.md", {"contexts": "@work"})
+
     def test_unquote_yaml(self):
         f = self.server.unquote_yaml
         self.assertEqual(f("plain"), "plain")

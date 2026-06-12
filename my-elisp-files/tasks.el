@@ -28,6 +28,11 @@
   "Allowed status values (excluding `done', which is set on archive)."
   :type '(repeat string))
 
+(defcustom my/tasks-contexts
+  '("@home" "@work" "@phone" "@computer" "@errands" "@reading")
+  "Allowed GTD contexts. Stored on a task as the YAML list `contexts:'."
+  :type '(repeat string))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utilities
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -159,6 +164,46 @@ and block style \"  - a\\n  - b\") become Lisp lists of strings."
                              (or title (file-name-base file))))
       (my/tasks--coerce-scalar-properties props))))
 
+(defun my/tasks--insert-list-block (key values)
+  "Insert KEY: as a YAML block list of VALUES at point."
+  (insert (format "%s:\n" key))
+  (dolist (v values)
+    (insert (format "  - %s\n" (my/tasks--yaml-quote v)))))
+
+(defun my/tasks--update-list-property (file key values)
+  "Replace KEY in FILE's frontmatter with a YAML block list of VALUES.
+Empty/nil VALUES removes the property entirely. Replaces an existing
+scalar or block-list value."
+  (let ((buf (find-file-noselect file)))
+    (with-current-buffer buf
+      (save-excursion
+        (goto-char (point-min))
+        (unless (looking-at "^---\n")
+          (error "No frontmatter in %s" file))
+        (forward-line 1)
+        (let* ((closing (save-excursion
+                          (when (re-search-forward "^---$" nil t)
+                            (line-beginning-position))))
+               (found (re-search-forward
+                       (format "^%s: *.*$" (regexp-quote key)) closing t)))
+          (if found
+              (let ((line-start (line-beginning-position))
+                    (delete-end (1+ (line-end-position))))
+                (save-excursion
+                  (forward-line 1)
+                  (while (and (< (point) (or closing (point-max)))
+                              (looking-at "^[[:space:]]+- "))
+                    (forward-line 1)
+                    (setq delete-end (point))))
+                (delete-region line-start delete-end)
+                (when values
+                  (goto-char line-start)
+                  (my/tasks--insert-list-block key values)))
+            (when values
+              (goto-char closing)
+              (my/tasks--insert-list-block key values)))))
+      (save-buffer))))
+
 (defun my/tasks--update-property (file key value)
   "Set KEY to VALUE in FILE's YAML frontmatter. Add if missing, remove if empty.
 When the key currently holds a block-style list (indented `- item' lines),
@@ -225,6 +270,13 @@ those lines are removed/replaced along with the matched header line."
 (defun my/tasks-archived ()
   "Return all tasks in the archive directory."
   (my/read-tasks my/tasks-archive-directory))
+
+(defun my/tasks-by-context (ctx)
+  "Return all active tasks that include CTX in their `contexts'."
+  (seq-filter (lambda (task)
+                (let ((cs (plist-get task :contexts)))
+                  (and (listp cs) (member ctx cs))))
+              (my/read-tasks)))
 
 (defun my/tasks-today ()
   (my/tasks-by-status "today"))
@@ -338,6 +390,10 @@ or abort with \\[my/tasks-capture-abort]."
   "Alist of (FILE . NEW-STATUS) status changes queued in this view.
 Applied (committed to disk) on the next refresh or reopen.")
 
+(defvar-local my/tasks-view-context-filter nil
+  "If non-nil, restrict the current view to tasks containing this context.
+Cleared by passing an empty string to `my/tasks-view-filter-context'.")
+
 (defvar-local my/tasks-expanded-files nil
   "List of task file paths whose body is inlined under their entry.
 Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
@@ -378,6 +434,8 @@ Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
   (define-key map (kbd "x") #'my/tasks-mark-done)
   (define-key map (kbd "u") #'my/tasks-unarchive)
   (define-key map (kbd "m") #'my/tasks-open-mail)
+  (define-key map (kbd "k") #'my/tasks-set-contexts)
+  (define-key map (kbd "f") #'my/tasks-view-filter-context)
   (define-key map (kbd "g") #'my/tasks-view-refresh)
   (define-key map (kbd "v") #'my/tasks-view-cycle)
   (define-key map (kbd "i") #'my/tasks-show-inbox)
@@ -430,6 +488,10 @@ Inherits the header colour so the bullet matches `my/tasks-header-face'.")
 (defface my/tasks-project-face
   '((t :inherit font-lock-string-face :slant italic))
   "Face for the project link.")
+
+(defface my/tasks-context-face
+  '((t :inherit font-lock-builtin-face))
+  "Face for context chips like `@work'.")
 
 (defun my/tasks--date-face (date)
   "Pick the right face for DATE (YYYY-MM-DD[ HH:MM])."
@@ -497,15 +559,30 @@ Trimmed; returns empty string when there is no body."
 
 (defun my/tasks--draw-view-content (display-title tasks query-fn arg)
   "Insert view content with TASKS into current buffer.
-Uses the buffer-local `my/tasks-pending-changes' for annotations."
+Honours the buffer-local context filter (`my/tasks-view-context-filter')
+and renders pending annotations plus per-task context chips."
   (setq buffer-read-only nil)
   (erase-buffer)
   (setq my/tasks-view-query query-fn)
   (setq my/tasks-view-query-arg arg)
+  (when my/tasks-view-context-filter
+    (setq tasks
+          (seq-filter (lambda (task)
+                        (member my/tasks-view-context-filter
+                                (plist-get task :contexts)))
+                      tasks)))
   (insert (propertize display-title 'face 'my/tasks-header-face))
+  (when my/tasks-view-context-filter
+    (insert (propertize "  ·  " 'face 'my/tasks-rule-face))
+    (insert (propertize my/tasks-view-context-filter
+                        'face 'my/tasks-context-face)))
   (insert "\n")
-  (insert (propertize (make-string (max 8 (length display-title)) ?─)
-                      'face 'my/tasks-rule-face))
+  (let ((rule-len (max 8 (+ (length display-title)
+                            (if my/tasks-view-context-filter
+                                (+ 5 (length my/tasks-view-context-filter))
+                              0)))))
+    (insert (propertize (make-string rule-len ?─)
+                        'face 'my/tasks-rule-face)))
   (insert "\n\n")
   (if tasks
       (dolist (task tasks)
@@ -514,6 +591,7 @@ Uses the buffer-local `my/tasks-pending-changes' for annotations."
                (scheduled (plist-get task :scheduled))
                (reminder (plist-get task :reminder))
                (project (plist-get task :project))
+               (contexts (plist-get task :contexts))
                (file (plist-get task :file))
                (pending (cdr (assoc file my/tasks-pending-changes)))
                (expanded (member file my/tasks-expanded-files))
@@ -533,6 +611,10 @@ Uses the buffer-local `my/tasks-pending-changes' for annotations."
           (when project
             (insert (propertize (format "  %s" project)
                                 'face 'my/tasks-project-face)))
+          (when (listp contexts)
+            (dolist (c contexts)
+              (insert (propertize (format "  %s" c)
+                                  'face 'my/tasks-context-face))))
           (when pending
             (insert (propertize (format "  → %s" pending)
                                 'face 'my/tasks-pending-face)))
@@ -613,6 +695,13 @@ Uses the buffer-local `my/tasks-pending-changes' for annotations."
   "Show archived tasks."
   (interactive)
   (my/tasks--render-buffer "*Archive*" #'my/tasks-archived))
+
+(defun my/tasks-show-context (ctx)
+  "Show all active tasks that include CTX in their `contexts'."
+  (interactive
+   (list (completing-read "Context: " my/tasks-contexts nil t)))
+  (my/tasks--render-buffer (format "*Context: %s*" ctx)
+                           #'my/tasks-by-context ctx))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; View Actions
@@ -728,6 +817,34 @@ In a view buffer the change is queued and applied on next refresh/reopen."
   (let ((file (my/tasks--current-task-file)))
     (unless file (user-error "No task at point"))
     (my/tasks--set-or-queue-status file "done")))
+
+(defun my/tasks-set-contexts ()
+  "Replace the contexts list on the task at point (multi-select)."
+  (interactive)
+  (let ((file (my/tasks--current-task-file)))
+    (unless file (user-error "No task at point"))
+    (let* ((current (plist-get (my/tasks--parse-frontmatter file) :contexts))
+           (initial (when (and (listp current) current)
+                      (mapconcat #'identity current ",")))
+           (raw (completing-read-multiple
+                 "Contexts: " my/tasks-contexts nil t initial))
+           (contexts (delete "" (or raw '()))))
+      (my/tasks--update-list-property file "contexts" contexts)
+      (when (derived-mode-p 'my/tasks-mode)
+        (my/tasks--redraw-view)))))
+
+(defun my/tasks-view-filter-context ()
+  "Filter the current view by a context.
+Empty input clears the filter; setting a new value triggers a redraw."
+  (interactive)
+  (unless (derived-mode-p 'my/tasks-mode)
+    (user-error "Not in a tasks view"))
+  (let ((ctx (completing-read
+              "Filter by context (empty to clear): "
+              my/tasks-contexts nil nil)))
+    (setq my/tasks-view-context-filter
+          (if (string-empty-p ctx) nil ctx))
+    (my/tasks--redraw-view)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Archive
@@ -904,6 +1021,8 @@ Supports both new (`mu4e-view-message-with-message-id') and old
 (global-set-key (kbd "C-c t r") #'my/tasks-set-reminder)
 (global-set-key (kbd "C-c t p") #'my/tasks-set-status)
 (global-set-key (kbd "C-c t m") #'my/tasks-open-mail)
+(global-set-key (kbd "C-c t k") #'my/tasks-set-contexts)
+(global-set-key (kbd "C-c t @") #'my/tasks-show-context)
 
 (provide 'tasks)
 ;;; tasks.el ends here

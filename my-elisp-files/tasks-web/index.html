@@ -12,6 +12,7 @@
     <div class="actions">
       <input id="capture-input" placeholder="Neue Task (Enter)" autofocus>
       <input id="search-input" placeholder="Suche …">
+      <select id="context-filter" title="Filter nach Kontext"></select>
       <button id="refresh-btn" title="Reload (auto every 30s)">↻</button>
       <button id="toggle-archive-btn">📦 Archiv</button>
     </div>
@@ -50,6 +51,10 @@
       <label>Erinnerung (Reminder) ⏰
         <input name="reminder" type="datetime-local">
       </label>
+      <fieldset class="contexts-fieldset">
+        <legend>Kontexte</legend>
+        <div id="contexts-checkboxes" class="checkbox-group"></div>
+      </fieldset>
       <div class="modal-actions">
         <button type="button" id="modal-archive-btn" class="danger">📦 Archivieren</button>
         <span class="spacer"></span>

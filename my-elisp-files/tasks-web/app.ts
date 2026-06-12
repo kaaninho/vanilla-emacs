@@ -27,6 +27,7 @@ interface EditPayload {
   scheduled: string;
   reminder: string;
   project: string;
+  contexts: string[];
 }
 
 const STATUSES: readonly Status[] = ["inbox", "today", "next", "waiting", "someday"];
@@ -46,6 +47,7 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string): T =>
 const board = $("board");
 const captureInput = $<HTMLInputElement>("capture-input");
 const searchInput = $<HTMLInputElement>("search-input");
+const contextFilterSelect = $<HTMLSelectElement>("context-filter");
 const refreshBtn = $<HTMLButtonElement>("refresh-btn");
 const archiveBtn = $<HTMLButtonElement>("toggle-archive-btn");
 const toast = $("toast");
@@ -53,12 +55,15 @@ const modal = $("modal");
 const editForm = $<HTMLFormElement>("edit-form");
 const modalCancelBtn = $<HTMLButtonElement>("modal-cancel-btn");
 const modalArchiveBtn = $<HTMLButtonElement>("modal-archive-btn");
+const contextsCheckboxes = $("contexts-checkboxes");
 
 let showingArchive = false;
 let allTasks: Task[] = [];
 let searchTerm = "";
 let editingFile: string | null = null;
 let toastTimer: number | undefined;
+let availableContexts: string[] = [];
+let contextFilter = "";
 
 // --- API ---
 
@@ -115,11 +120,21 @@ function showToast(msg: string, isError = false): void {
 
 function matchesSearch(task: Task): boolean {
   if (!searchTerm) return true;
-  const hay = [task.title, task.project, task.due, task.scheduled]
+  const ctxStr = Array.isArray(task.contexts) ? task.contexts.join(" ") : "";
+  const hay = [task.title, task.project, task.due, task.scheduled, ctxStr]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
   return hay.includes(searchTerm);
+}
+
+function matchesContextFilter(task: Task): boolean {
+  if (!contextFilter) return true;
+  return Array.isArray(task.contexts) && task.contexts.includes(contextFilter);
+}
+
+function cardVisible(task: Task): boolean {
+  return matchesSearch(task) && matchesContextFilter(task);
 }
 
 // --- Rendering ---
@@ -178,6 +193,14 @@ function renderCard(task: Task): HTMLDivElement {
     el.textContent = task.project;
     meta.appendChild(el);
   }
+  if (Array.isArray(task.contexts)) {
+    for (const c of task.contexts) {
+      const el = document.createElement("span");
+      el.className = "context";
+      el.textContent = c;
+      meta.appendChild(el);
+    }
+  }
   if (showingArchive && task["archived-at"]) {
     const el = document.createElement("span");
     el.className = "date";
@@ -220,7 +243,7 @@ function renderCard(task: Task): HTMLDivElement {
 
   card.addEventListener("click", () => openEditModal(task));
 
-  if (!matchesSearch(task)) card.classList.add("hidden");
+  if (!cardVisible(task)) card.classList.add("hidden");
   return card;
 }
 
@@ -328,6 +351,43 @@ async function load(): Promise<void> {
   }
 }
 
+// --- Contexts ---
+
+async function loadContexts(): Promise<void> {
+  try {
+    availableContexts = await api<string[]>("/api/contexts");
+  } catch {
+    availableContexts = [];
+  }
+  populateContextFilter();
+  renderContextsCheckboxes([]);
+}
+
+function populateContextFilter(): void {
+  const current = contextFilterSelect.value;
+  contextFilterSelect.innerHTML =
+    '<option value="">Alle Kontexte</option>' +
+    availableContexts
+      .map((c) => `<option value="${c}">${c}</option>`)
+      .join("");
+  contextFilterSelect.value = current;
+}
+
+function renderContextsCheckboxes(selected: readonly string[]): void {
+  contextsCheckboxes.innerHTML = "";
+  for (const ctx of availableContexts) {
+    const label = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.name = "ctx";
+    cb.value = ctx;
+    cb.checked = selected.includes(ctx);
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(" " + ctx));
+    contextsCheckboxes.appendChild(label);
+  }
+}
+
 // --- Edit modal ---
 
 function formField<T extends HTMLInputElement | HTMLSelectElement>(
@@ -352,6 +412,9 @@ function openEditModal(task: Task): void {
     ? task.reminder.replace(" ", "T").slice(0, 16)
     : "";
   formField<HTMLInputElement>("project").value = task.project || "";
+  renderContextsCheckboxes(
+    Array.isArray(task.contexts) ? task.contexts : [],
+  );
   modal.classList.remove("hidden");
   modal.setAttribute("aria-hidden", "false");
   titleEl.focus();
@@ -369,6 +432,9 @@ editForm.addEventListener("submit", async (e) => {
   if (!editingFile) return;
   const fd = new FormData(editForm);
   const rem = (fd.get("reminder") ?? "").toString();
+  const checked = contextsCheckboxes.querySelectorAll<HTMLInputElement>(
+    'input[name="ctx"]:checked',
+  );
   const payload: EditPayload = {
     file: editingFile,
     title: (fd.get("title") ?? "").toString().trim(),
@@ -377,6 +443,7 @@ editForm.addEventListener("submit", async (e) => {
     scheduled: (fd.get("scheduled") ?? "").toString(),
     reminder: rem ? rem.replace("T", " ") : "",
     project: (fd.get("project") ?? "").toString().trim(),
+    contexts: Array.from(checked).map((b) => b.value),
   };
   if (!payload.title) {
     showToast("Titel darf nicht leer sein", true);
@@ -408,13 +475,22 @@ captureInput.addEventListener("keydown", async (e) => {
   }
 });
 
-searchInput.addEventListener("input", () => {
-  searchTerm = searchInput.value.trim().toLowerCase();
+function applyCardVisibility(): void {
   document.querySelectorAll<HTMLDivElement>(".card").forEach((c) => {
     const file = c.dataset.file;
     const t = allTasks.find((x) => x.file === file);
-    c.classList.toggle("hidden", !t || !matchesSearch(t));
+    c.classList.toggle("hidden", !t || !cardVisible(t));
   });
+}
+
+searchInput.addEventListener("input", () => {
+  searchTerm = searchInput.value.trim().toLowerCase();
+  applyCardVisibility();
+});
+
+contextFilterSelect.addEventListener("change", () => {
+  contextFilter = contextFilterSelect.value;
+  applyCardVisibility();
 });
 
 refreshBtn.addEventListener("click", () => {
@@ -456,4 +532,7 @@ setInterval(() => {
   if (!document.hidden) void load();
 }, 30_000);
 
-void load();
+void (async () => {
+  await loadContexts();
+  await load();
+})();

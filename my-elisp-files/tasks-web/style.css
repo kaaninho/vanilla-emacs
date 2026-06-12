@@ -60,6 +60,18 @@ header h1 {
 .actions input { width: 240px; }
 #search-input { width: 160px; }
 
+#context-filter {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  color-scheme: dark;
+}
+#context-filter:focus { outline: none; border-color: var(--accent); }
+
 .actions input:focus {
   outline: none;
   border-color: var(--accent);
@@ -161,6 +173,15 @@ header h1 {
 .card-meta .date.overdue { color: var(--overdue); font-weight: 600; }
 .card-meta .date.today { color: var(--today); font-weight: 600; }
 .card-meta .project { color: var(--project); font-style: italic; }
+.card-meta .context {
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 11px;
+  letter-spacing: 0.2px;
+  font-variant: tabular-nums;
+}
 
 .card-actions {
   position: absolute;
@@ -355,4 +376,41 @@ header h1 {
 .modal-actions button[type="submit"]:hover {
   background: #f0c469;
   border-color: #f0c469;
+}
+
+.contexts-fieldset {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px 10px;
+  margin: 0;
+}
+.contexts-fieldset legend {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-weight: 600;
+  padding: 0 4px;
+}
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.checkbox-group label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-direction: row;
+  font-size: 13px;
+  color: var(--fg);
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: normal;
+  cursor: pointer;
+}
+.checkbox-group input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
 }

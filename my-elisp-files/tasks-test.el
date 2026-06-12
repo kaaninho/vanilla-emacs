@@ -202,6 +202,109 @@ The macro exposes `temp-dir' as the active-tasks directory."
         (should (string-match-p "status: inbox" text))
         (should (string-match-p "due: 2026-06-08" text))))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Contexts
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--update-list-property-writes-block ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# T\n"))
+      (my/tasks--update-list-property file "contexts" '("@work" "@computer"))
+      (let* ((text (with-temp-buffer (insert-file-contents file)
+                                     (buffer-string)))
+             (task (my/tasks--parse-frontmatter file)))
+        (should (string-match-p "contexts:\n  - \"@work\"\n  - \"@computer\"" text))
+        (should (equal (plist-get task :contexts) '("@work" "@computer")))))))
+
+(ert-deftest tasks-test--update-list-property-removes ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\ncontexts:\n  - \"@work\"\n"
+                "  - \"@home\"\ndue: 2026-06-08\n---\n\n# T\n"))
+      (my/tasks--update-list-property file "contexts" nil)
+      (let ((text (with-temp-buffer (insert-file-contents file)
+                                    (buffer-string))))
+        (should-not (string-match-p "contexts:" text))
+        (should-not (string-match-p "@work" text))
+        (should (string-match-p "status: inbox" text))
+        (should (string-match-p "due: 2026-06-08" text))))))
+
+(ert-deftest tasks-test--update-list-property-replaces-scalar ()
+  "Setting a list value over an existing scalar replaces it cleanly."
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\ncontexts: oldscalar\n---\n\n# T\n"))
+      (my/tasks--update-list-property file "contexts" '("@a"))
+      (let* ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :contexts) '("@a")))))))
+
+(ert-deftest tasks-test--by-context-filters ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: next\ncontexts:\n  - \"@work\"\n---\n\n# A\n"))
+    (with-temp-file (expand-file-name "b.md" temp-dir)
+      (insert "---\nstatus: next\ncontexts:\n"
+              "  - \"@work\"\n  - \"@home\"\n---\n\n# B\n"))
+    (with-temp-file (expand-file-name "c.md" temp-dir)
+      (insert "---\nstatus: next\ncontexts:\n  - \"@home\"\n---\n\n# C\n"))
+    (with-temp-file (expand-file-name "d.md" temp-dir)
+      (insert "---\nstatus: next\n---\n\n# D\n"))
+    (let ((titles (lambda (xs)
+                    (sort (mapcar (lambda (t) (plist-get t :title)) xs)
+                          #'string<))))
+      (should (equal (funcall titles (my/tasks-by-context "@work"))
+                     '("A" "B")))
+      (should (equal (funcall titles (my/tasks-by-context "@home"))
+                     '("B" "C"))))))
+
+(ert-deftest tasks-test--show-context-renders-only-matching ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: next\ncontexts:\n  - \"@work\"\n---\n\n# A\n"))
+    (with-temp-file (expand-file-name "b.md" temp-dir)
+      (insert "---\nstatus: next\ncontexts:\n  - \"@home\"\n---\n\n# B\n"))
+    (my/tasks-show-context "@work")
+    (with-current-buffer "*Context: @work*"
+      (let ((text (buffer-string)))
+        (should (string-match-p "▸ A" text))
+        (should-not (string-match-p "▸ B" text))))))
+
+(ert-deftest tasks-test--view-filter-context-narrows-and-clears ()
+  "Setting and clearing the buffer-local context filter both work."
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: next\ncontexts:\n  - \"@work\"\n---\n\n# A\n"))
+    (with-temp-file (expand-file-name "b.md" temp-dir)
+      (insert "---\nstatus: next\n---\n\n# B\n"))
+    (my/tasks-show-next)
+    (with-current-buffer "*Next*"
+      ;; Without filter: both visible.
+      (should (string-match-p "▸ A" (buffer-string)))
+      (should (string-match-p "▸ B" (buffer-string)))
+      ;; Apply filter.
+      (setq my/tasks-view-context-filter "@work")
+      (my/tasks--redraw-view)
+      (should (string-match-p "▸ A" (buffer-string)))
+      (should-not (string-match-p "▸ B" (buffer-string)))
+      ;; Clear filter.
+      (setq my/tasks-view-context-filter nil)
+      (my/tasks--redraw-view)
+      (should (string-match-p "▸ A" (buffer-string)))
+      (should (string-match-p "▸ B" (buffer-string))))))
+
+(ert-deftest tasks-test--card-renders-context-chips ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: next\ncontexts:\n"
+              "  - \"@work\"\n  - \"@computer\"\n---\n\n# A\n"))
+    (my/tasks-show-next)
+    (with-current-buffer "*Next*"
+      (should (string-match-p "@work" (buffer-string)))
+      (should (string-match-p "@computer" (buffer-string))))))
+
 (ert-deftest tasks-test--update-property-replaces-block-list-with-scalar ()
   (tasks-test--with-temp-dirs
     (let ((file (expand-file-name "t.md" temp-dir)))
@@ -217,20 +320,29 @@ The macro exposes `temp-dir' as the active-tasks directory."
 ;; Capture
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(ert-deftest tasks-test--capture-creates-file ()
+(ert-deftest tasks-test--write-task-file-creates-file ()
   (tasks-test--with-temp-dirs
-    (my/tasks-capture "Test Task")
-    (let* ((path (expand-file-name "test-task.md" temp-dir))
+    (let* ((path (my/tasks--write-task-file "Test Task" ""))
            (task (my/tasks--parse-frontmatter path)))
       (should (file-exists-p path))
+      (should (equal (file-name-nondirectory path) "test-task.md"))
       (should (equal (plist-get task :status) "inbox"))
       (should (equal (plist-get task :title) "Test Task"))
       (should (plist-get task :created)))))
 
-(ert-deftest tasks-test--capture-collision ()
+(ert-deftest tasks-test--write-task-file-writes-body ()
   (tasks-test--with-temp-dirs
-    (my/tasks-capture "Same Title")
-    (my/tasks-capture "Same Title")
+    (let ((path (my/tasks--write-task-file "T" "first line\nsecond line")))
+      (with-temp-buffer
+        (insert-file-contents path)
+        (let ((text (buffer-string)))
+          (should (string-match-p "first line" text))
+          (should (string-match-p "second line" text)))))))
+
+(ert-deftest tasks-test--write-task-file-collision ()
+  (tasks-test--with-temp-dirs
+    (my/tasks--write-task-file "Same Title" "")
+    (my/tasks--write-task-file "Same Title" "")
     (should (file-exists-p (expand-file-name "same-title.md" temp-dir)))
     (should (file-exists-p (expand-file-name "same-title-2.md" temp-dir)))))
 
