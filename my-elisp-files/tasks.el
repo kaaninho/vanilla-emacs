@@ -238,9 +238,24 @@ those lines are removed/replaced along with the matched header line."
 ;; Capture
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defun my/tasks-capture (title)
-  "Create a new task file with TITLE in `my/tasks-directory'."
-  (interactive "sTask: ")
+(defconst my/tasks-capture-buffer-name "*Tasks Capture*"
+  "Name of the buffer used for interactive task capture.")
+
+(defvar my/tasks-capture-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-c") #'my/tasks-capture-finalize)
+    (define-key map (kbd "C-c C-k") #'my/tasks-capture-abort)
+    map)
+  "Keymap for `my/tasks-capture-mode'.")
+
+(define-minor-mode my/tasks-capture-mode
+  "Minor mode for the task capture buffer.
+Provides \\[my/tasks-capture-finalize] to save and \\[my/tasks-capture-abort] to abort."
+  :lighter " Capture"
+  :keymap my/tasks-capture-mode-map)
+
+(defun my/tasks--write-task-file (title body)
+  "Write a new task file with TITLE and BODY. Return the resulting path."
   (my/tasks--ensure-dir my/tasks-directory)
   (let* ((slug (my/tasks--slugify title))
          (path (my/tasks--unique-path my/tasks-directory slug)))
@@ -249,9 +264,65 @@ those lines are removed/replaced along with the matched header line."
       (insert "status: inbox\n")
       (insert (format "created: %s\n" (my/tasks--now-string)))
       (insert "---\n\n")
-      (insert (format "# %s\n\n" title))
+      (insert (format "# %s\n" title))
+      (unless (string-empty-p body)
+        (insert "\n" body "\n"))
       (write-region (point-min) (point-max) path))
+    path))
+
+(defun my/tasks-capture ()
+  "Open a buffer to compose a new task.
+Edit title (the H1) and body, then commit with \\[my/tasks-capture-finalize]
+or abort with \\[my/tasks-capture-abort]."
+  (interactive)
+  (my/tasks--ensure-dir my/tasks-directory)
+  (let* ((existing (get-buffer my/tasks-capture-buffer-name))
+         (buf (or existing
+                  (get-buffer-create my/tasks-capture-buffer-name))))
+    (unless existing
+      (with-current-buffer buf
+        (if (fboundp 'markdown-mode) (markdown-mode) (text-mode))
+        (my/tasks-capture-mode 1)
+        (insert "# \n\n")
+        (setq header-line-format
+              (substitute-command-keys
+               " New task — finish with \\[my/tasks-capture-finalize], abort with \\[my/tasks-capture-abort]"))))
+    (pop-to-buffer buf)
+    (unless existing
+      (goto-char (point-min))
+      (end-of-line))))
+
+(defun my/tasks--capture-parse ()
+  "Parse the current capture buffer. Return (TITLE . BODY)."
+  (save-excursion
+    (goto-char (point-min))
+    (unless (looking-at "^# \\(.*?\\)[[:space:]]*$")
+      (user-error "First line must start with `# ' followed by the title"))
+    (let ((title (string-trim (match-string 1))))
+      (when (string-empty-p title)
+        (user-error "Title is empty"))
+      (forward-line 1)
+      (let ((body (string-trim
+                   (buffer-substring-no-properties (point) (point-max)))))
+        (cons title body)))))
+
+(defun my/tasks-capture-finalize ()
+  "Write the captured task to disk and close the capture buffer."
+  (interactive)
+  (unless my/tasks-capture-mode
+    (user-error "Not in a tasks capture buffer"))
+  (let* ((parsed (my/tasks--capture-parse))
+         (path (my/tasks--write-task-file (car parsed) (cdr parsed))))
+    (quit-window t)
     (message "Captured: %s" (file-name-nondirectory path))))
+
+(defun my/tasks-capture-abort ()
+  "Abort task capture, discarding the buffer contents."
+  (interactive)
+  (unless my/tasks-capture-mode
+    (user-error "Not in a tasks capture buffer"))
+  (quit-window t)
+  (message "Capture aborted"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Views
