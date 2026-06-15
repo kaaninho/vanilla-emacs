@@ -278,6 +278,29 @@ those lines are removed/replaced along with the matched header line."
                   (and (listp cs) (member ctx cs))))
               (my/read-tasks)))
 
+(defun my/tasks--file-contains-p (file query)
+  "Return non-nil if FILE's contents contain QUERY (case-insensitive)."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (let ((case-fold-search t))
+      (goto-char (point-min))
+      (search-forward query nil t))))
+
+(defun my/tasks-search-results (query)
+  "Return all tasks (active + archived) whose contents contain QUERY.
+Search is case-insensitive substring over the whole markdown file —
+frontmatter, title and body."
+  (when (and query (not (string-empty-p (string-trim query))))
+    (let ((all (append (my/read-tasks my/tasks-directory)
+                       (when (file-directory-p my/tasks-archive-directory)
+                         (my/read-tasks my/tasks-archive-directory))))
+          results)
+      (dolist (task all)
+        (let ((file (plist-get task :file)))
+          (when (and file (my/tasks--file-contains-p file query))
+            (push task results))))
+      (nreverse results))))
+
 (defun my/tasks-today ()
   (my/tasks-by-status "today"))
 
@@ -436,6 +459,7 @@ Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
   (define-key map (kbd "m") #'my/tasks-open-mail)
   (define-key map (kbd "k") #'my/tasks-set-contexts)
   (define-key map (kbd "f") #'my/tasks-view-filter-context)
+  (define-key map (kbd "/") #'my/tasks-search)
   (define-key map (kbd "g") #'my/tasks-view-refresh)
   (define-key map (kbd "v") #'my/tasks-view-cycle)
   (define-key map (kbd "i") #'my/tasks-show-inbox)
@@ -615,6 +639,9 @@ and renders pending annotations plus per-task context chips."
             (dolist (c contexts)
               (insert (propertize (format "  %s" c)
                                   'face 'my/tasks-context-face))))
+          (when-let ((archived-at (plist-get task :archived-at)))
+            (insert (propertize (format "  📦 %s" archived-at)
+                                'face 'my/tasks-date-face)))
           (when pending
             (insert (propertize (format "  → %s" pending)
                                 'face 'my/tasks-pending-face)))
@@ -702,6 +729,14 @@ and renders pending annotations plus per-task context chips."
    (list (completing-read "Context: " my/tasks-contexts nil t)))
   (my/tasks--render-buffer (format "*Context: %s*" ctx)
                            #'my/tasks-by-context ctx))
+
+(defun my/tasks-search (query)
+  "Grep all tasks (active + archive) for QUERY and show matches as a view."
+  (interactive "sSearch tasks: ")
+  (when (string-empty-p (string-trim query))
+    (user-error "Empty search query"))
+  (my/tasks--render-buffer (format "*Search: %s*" query)
+                           #'my/tasks-search-results query))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; View Actions
@@ -1023,6 +1058,7 @@ Supports both new (`mu4e-view-message-with-message-id') and old
 (global-set-key (kbd "C-c t m") #'my/tasks-open-mail)
 (global-set-key (kbd "C-c t k") #'my/tasks-set-contexts)
 (global-set-key (kbd "C-c t @") #'my/tasks-show-context)
+(global-set-key (kbd "C-c t /") #'my/tasks-search)
 
 (provide 'tasks)
 ;;; tasks.el ends here

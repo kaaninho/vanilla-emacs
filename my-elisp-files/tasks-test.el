@@ -23,6 +23,11 @@ The macro exposes `temp-dir' as the active-tasks directory."
              (kill-buffer buf))))
        (dolist (name '("*Inbox*" "*Today*" "*Next*" "*Waiting*" "*Someday*" "*Archive*"))
          (when (get-buffer name) (kill-buffer name)))
+       (dolist (buf (buffer-list))
+         (let ((bn (buffer-name buf)))
+           (when (and bn (or (string-prefix-p "*Search: " bn)
+                             (string-prefix-p "*Context: " bn)))
+             (kill-buffer buf))))
        (when (file-directory-p temp-dir)
          (delete-directory temp-dir t)))))
 
@@ -304,6 +309,104 @@ The macro exposes `temp-dir' as the active-tasks directory."
     (with-current-buffer "*Next*"
       (should (string-match-p "@work" (buffer-string)))
       (should (string-match-p "@computer" (buffer-string))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Search
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--search-matches-title ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: next\n---\n\n# Find me\n"))
+    (with-temp-file (expand-file-name "b.md" temp-dir)
+      (insert "---\nstatus: next\n---\n\n# Other\n"))
+    (let* ((results (my/tasks-search-results "find me"))
+           (titles (mapcar (lambda (t) (plist-get t :title)) results)))
+      (should (equal titles '("Find me"))))))
+
+(ert-deftest tasks-test--search-matches-body ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: next\n---\n\n# Foo\n\nSpecificWord in body.\n"))
+    (with-temp-file (expand-file-name "b.md" temp-dir)
+      (insert "---\nstatus: next\n---\n\n# Bar\n\nUnrelated.\n"))
+    (let* ((results (my/tasks-search-results "specificword"))
+           (titles (mapcar (lambda (t) (plist-get t :title)) results)))
+      (should (equal titles '("Foo"))))))
+
+(ert-deftest tasks-test--search-matches-frontmatter ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: next\nproject: \"[[Email Migration]]\"\n"
+              "---\n\n# Reply to Alice\n"))
+    (let* ((results (my/tasks-search-results "Email Migration"))
+           (titles (mapcar (lambda (t) (plist-get t :title)) results)))
+      (should (equal titles '("Reply to Alice"))))))
+
+(ert-deftest tasks-test--search-includes-archive ()
+  (tasks-test--with-temp-dirs
+    (make-directory my/tasks-archive-directory t)
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: next\n---\n\n# Active hit\n"))
+    (with-temp-file (expand-file-name "2026-05-26-old.md"
+                                      my/tasks-archive-directory)
+      (insert "---\nstatus: done\narchived-at: 2026-05-26\n"
+              "---\n\n# Archived hit\n"))
+    (let* ((results (my/tasks-search-results "hit"))
+           (titles (sort (mapcar (lambda (t) (plist-get t :title)) results)
+                         #'string<)))
+      (should (equal titles '("Active hit" "Archived hit"))))))
+
+(ert-deftest tasks-test--search-case-insensitive ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: next\n---\n\n# MixedCase Title\n"))
+    (should (= 1 (length (my/tasks-search-results "mixedcase"))))
+    (should (= 1 (length (my/tasks-search-results "MIXEDCASE"))))
+    (should (= 1 (length (my/tasks-search-results "MixedCase"))))))
+
+(ert-deftest tasks-test--search-empty-query-returns-nil ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: next\n---\n\n# A\n"))
+    (should-not (my/tasks-search-results ""))
+    (should-not (my/tasks-search-results "   "))))
+
+(ert-deftest tasks-test--search-no-match ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: next\n---\n\n# A\n"))
+    (should-not (my/tasks-search-results "nonexistent"))))
+
+(ert-deftest tasks-test--show-search-renders-buffer ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: next\n---\n\n# Unique-title-foo\n"))
+    (with-temp-file (expand-file-name "b.md" temp-dir)
+      (insert "---\nstatus: next\n---\n\n# Other\n"))
+    (my/tasks-search "Unique-title-foo")
+    (with-current-buffer "*Search: Unique-title-foo*"
+      (let ((text (buffer-string)))
+        (should (string-match-p "▸ Unique-title-foo" text))
+        (should-not (string-match-p "▸ Other" text))))))
+
+(ert-deftest tasks-test--search-empty-query-errors ()
+  (tasks-test--with-temp-dirs
+    (should-error (my/tasks-search "") :type 'user-error)
+    (should-error (my/tasks-search "   ") :type 'user-error)))
+
+(ert-deftest tasks-test--render-shows-archived-at-marker ()
+  "When a task carries `archived-at', the card renders a 📦 marker
+so search hits from the archive are recognisable."
+  (tasks-test--with-temp-dirs
+    (make-directory my/tasks-archive-directory t)
+    (with-temp-file (expand-file-name "2026-05-26-old.md"
+                                      my/tasks-archive-directory)
+      (insert "---\nstatus: done\narchived-at: 2026-05-26\n"
+              "---\n\n# Archived needle\n"))
+    (my/tasks-search "needle")
+    (with-current-buffer "*Search: needle*"
+      (should (string-match-p "📦 2026-05-26" (buffer-string))))))
 
 (ert-deftest tasks-test--update-property-replaces-block-list-with-scalar ()
   (tasks-test--with-temp-dirs
