@@ -735,10 +735,8 @@ so search hits from the archive are recognisable."
                                 :subject "Important request"
                                 :message-id "abc123@host")))
               ((symbol-function 'mu4e-message-field)
-               (lambda (msg field) (plist-get msg field)))
-              ((symbol-function 'read-string)
-               (lambda (&rest _) "Reply to Alice")))
-      (my/tasks-capture-from-mu4e))
+               (lambda (msg field) (plist-get msg field))))
+      (my/tasks-capture-from-mu4e "Reply to Alice"))
     (let* ((path (expand-file-name "reply-to-alice.md" temp-dir))
            (task (my/tasks--parse-frontmatter path)))
       (should (file-exists-p path))

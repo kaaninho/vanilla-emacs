@@ -981,10 +981,11 @@ Falls back to the name if no email is present."
   (or (my/tasks--current-task-file)
       (my/tasks--current-archived-file)))
 
-(defun my/tasks-capture-from-mu4e ()
+(defun my/tasks-capture-from-mu4e (&optional title)
   "Capture a task linked to the current mu4e message.
+TITLE defaults to a `read-string' prompt when called interactively.
 Saves the Message-ID in frontmatter so `my/tasks-open-mail' can jump back."
-  (interactive)
+  (interactive (list nil))
   (let ((msg (and (fboundp 'mu4e-message-at-point)
                   (mu4e-message-at-point))))
     (unless msg (user-error "Not in a mu4e buffer"))
@@ -992,7 +993,7 @@ Saves the Message-ID in frontmatter so `my/tasks-open-mail' can jump back."
            (subject (or (mu4e-message-field msg :subject) ""))
            (from-email (my/tasks--mu4e-from-email
                         (mu4e-message-field msg :from)))
-           (title (read-string "Task title: "))
+           (title (or title (read-string "Task title: ")))
            (slug (my/tasks--slugify title)))
       (my/tasks--ensure-dir my/tasks-directory)
       (let ((path (my/tasks--unique-path my/tasks-directory slug)))
