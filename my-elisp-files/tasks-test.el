@@ -1147,5 +1147,44 @@ so search hits from the archive are recognisable."
       (should (= 1 (length (directory-files my/tasks-archive-directory
                                             t "\\.md\\'")))))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Header-line key hints
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--header-line-contains-hint ()
+  "Header-line builder ends with the configured hint string."
+  (let ((result (my/tasks--header-line)))
+    (should (stringp result))
+    (should (string-suffix-p my/tasks--view-hint result))))
+
+(ert-deftest tasks-test--header-line-uses-align-to-display-prop ()
+  "The pad prefix carries a `(space :align-to ...)' display property."
+  (let* ((result (my/tasks--header-line))
+         (prop (get-text-property 0 'display result)))
+    (should (eq (car prop) 'space))
+    (should (eq (cadr prop) :align-to))))
+
+(ert-deftest tasks-test--view-has-header-line-format ()
+  "After entering `my/tasks-mode', the buffer has a header-line-format."
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: inbox\n---\n\n# A\n"))
+    (my/tasks-show-inbox)
+    (with-current-buffer "*Inbox*"
+      (should header-line-format))))
+
+(ert-deftest tasks-test--view-help-opens-help-buffer ()
+  "Calling `my/tasks-view-help' produces a `*Tasks Help*' buffer with content."
+  (tasks-test--with-temp-dirs
+    (unwind-protect
+        (progn
+          (my/tasks-view-help)
+          (with-current-buffer "*Tasks Help*"
+            (let ((text (buffer-string)))
+              (should (string-match-p "Tasks View — Keybindings" text))
+              (should (string-match-p "RET" text))
+              (should (string-match-p "inbox-processing wizard" text)))))
+      (when (get-buffer "*Tasks Help*") (kill-buffer "*Tasks Help*")))))
+
 (provide 'tasks-test)
 ;;; tasks-test.el ends here

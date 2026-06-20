@@ -466,12 +466,53 @@ Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
   (define-key map (kbd "T") #'my/tasks-show-today)
   (define-key map (kbd "A") #'my/tasks-show-archive)
   (define-key map (kbd "I") #'my/tasks-process-inbox)
+  (define-key map (kbd "?") #'my/tasks-view-help)
   (define-key map (kbd "q") #'quit-window))
+
+(defconst my/tasks--view-hint
+  "RET·open  t·today  x·done  p·status  k·ctx  d·due  /·search  ?·help  q·quit"
+  "Compact key-hint shown right-aligned in the header line of tasks views.")
+
+(defun my/tasks--header-line ()
+  "Return the right-aligned key-hint string for the header line."
+  (concat
+   (propertize " " 'display
+               `(space :align-to (- right ,(+ 1 (length my/tasks--view-hint)))))
+   my/tasks--view-hint))
+
+(defun my/tasks-view-help ()
+  "Show full key bindings for `my/tasks-mode' in a help window."
+  (interactive)
+  (with-help-window "*Tasks Help*"
+    (princ "Tasks View — Keybindings\n\n")
+    (princ "Per-task:\n")
+    (princ "  RET   open the task file\n")
+    (princ "  TAB   toggle inline body expansion\n")
+    (princ "  t     toggle today\n")
+    (princ "  d / s / r   set due / scheduled / reminder\n")
+    (princ "  p     set status (completing-read)\n")
+    (princ "  k     set contexts (multi-select)\n")
+    (princ "  x     mark done (archive)\n")
+    (princ "  u     un-archive\n")
+    (princ "  m     open the linked mu4e message\n\n")
+    (princ "Filter / search:\n")
+    (princ "  f     filter current view by a context\n")
+    (princ "  /     search all tasks (active + archive)\n\n")
+    (princ "Navigation:\n")
+    (princ "  g     refresh (commits pending status changes)\n")
+    (princ "  v     cycle inbox → today → next → waiting → someday\n")
+    (princ "  i     show inbox\n")
+    (princ "  T     show today\n")
+    (princ "  A     show archive\n")
+    (princ "  I     start inbox-processing wizard\n")
+    (princ "  q     quit (bury buffer)\n")
+    (princ "  ?     this help")))
 
 (define-derived-mode my/tasks-mode special-mode "Tasks"
   "Major mode for interactive task lists."
   (setq-local line-prefix "  ")
-  (setq-local cursor-type 'bar))
+  (setq-local cursor-type 'bar)
+  (setq-local header-line-format '(:eval (my/tasks--header-line))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Faces
