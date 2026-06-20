@@ -33,7 +33,7 @@ EDITABLE_PROPERTIES = ("due", "scheduled", "reminder", "project")
 # one-element block list when the property type is "List".
 SCALAR_PROPERTY_KEYS = {
     "status", "due", "scheduled", "reminder", "project",
-    "created", "archived-at", "mu4e-msgid",
+    "created", "archived-at", "mu4e-msgid", "waiting-since",
 }
 
 # Fixed GTD contexts. Mirror of Elisp's `my/tasks-contexts'.
@@ -203,7 +203,9 @@ def update_property(path, key, value):
     VALUE of None or "" removes the property. When the key holds a
     block-style list (indented `- item' lines below), those lines are
     removed/replaced along with the header line. A `status:' change
-    appends an audit log line to the end of PATH.
+    appends an audit log line to the end of PATH and, when entering
+    or leaving the `waiting' status, automatically sets or clears the
+    `waiting-since:' field.
     """
     old_status = None
     if key == "status":
@@ -238,6 +240,10 @@ def update_property(path, key, value):
                     encoding="utf-8")
     if key == "status" and value and old_status and old_status != value:
         append_log(path, old_status, value)
+        if value == "waiting":
+            update_property(path, "waiting-since", today_str())
+        elif old_status == "waiting":
+            update_property(path, "waiting-since", None)
 
 
 def update_list_property(path, key, values):

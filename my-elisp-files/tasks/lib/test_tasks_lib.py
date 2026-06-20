@@ -455,6 +455,42 @@ class TasksLibTests(unittest.TestCase):
         self.assertEqual(len(archived), 1)
         self.assertRegex(archived[0].read_text(), r"- .+: next → done")
 
+    # --- Waiting-since auto-stamping ---
+
+    def test_entering_waiting_sets_waiting_since(self):
+        from datetime import date
+        p = self.tasks_dir / "t.md"
+        p.write_text("---\nstatus: next\n---\n\n# T\n")
+        self.lib.update_property(p, "status", "waiting")
+        task = self.lib.parse_task(p)
+        self.assertEqual(task.get("status"), "waiting")
+        self.assertEqual(task.get("waiting-since"), date.today().isoformat())
+
+    def test_leaving_waiting_clears_waiting_since(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text(
+            "---\nstatus: waiting\nwaiting-since: 2020-01-01\n---\n\n# T\n")
+        self.lib.update_property(p, "status", "next")
+        task = self.lib.parse_task(p)
+        self.assertEqual(task.get("status"), "next")
+        self.assertNotIn("waiting-since", task)
+
+    def test_non_status_update_keeps_waiting_since(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text(
+            "---\nstatus: waiting\nwaiting-since: 2020-01-01\n---\n\n# T\n")
+        self.lib.update_property(p, "due", "2026-12-31")
+        task = self.lib.parse_task(p)
+        self.assertEqual(task.get("waiting-since"), "2020-01-01")
+
+    def test_waiting_to_waiting_noop(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text(
+            "---\nstatus: waiting\nwaiting-since: 2020-01-01\n---\n\n# T\n")
+        self.lib.update_property(p, "status", "waiting")
+        task = self.lib.parse_task(p)
+        self.assertEqual(task.get("waiting-since"), "2020-01-01")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -10,7 +10,10 @@ The macro exposes `temp-dir' as the active-tasks directory."
   (declare (indent 0) (debug t))
   `(let* ((temp-dir (make-temp-file "tasks-test-" t))
           (my/tasks-directory temp-dir)
-          (my/tasks-archive-directory (expand-file-name "archive" temp-dir)))
+          (my/tasks-archive-directory (expand-file-name "archive" temp-dir))
+          ;; Keep streak state isolated so tests never touch the user's
+          ;; `~/.tasks-streak.json'.
+          (my/tasks-streak-file (expand-file-name "streak.json" temp-dir)))
      (unwind-protect
          (progn ,@body)
        (dolist (buf (buffer-list))
@@ -1159,11 +1162,13 @@ so search hits from the archive are recognisable."
     (should (string-suffix-p my/tasks--view-hint result))))
 
 (ert-deftest tasks-test--header-line-uses-align-to-display-prop ()
-  "The pad prefix carries a `(space :align-to ...)' display property."
-  (let* ((result (my/tasks--header-line))
-         (prop (get-text-property 0 'display result)))
-    (should (eq (car prop) 'space))
-    (should (eq (cadr prop) :align-to))))
+  "The pad prefix carries a `(space :align-to ...)' display property
+when no stats badges are in the way."
+  (tasks-test--with-temp-dirs
+    (let* ((result (my/tasks--header-line))
+           (prop (get-text-property 0 'display result)))
+      (should (eq (car prop) 'space))
+      (should (eq (cadr prop) :align-to)))))
 
 (ert-deftest tasks-test--view-has-header-line-format ()
   "After entering `my/tasks-mode', the buffer has a header-line-format."
@@ -1593,6 +1598,113 @@ run BODY, then clean up."
       '(:current 5 :longest 9 :last_zero_date "2020-01-01")
     (let ((line (my/tasks--header-line)))
       (should-not (string-match-p "🔥" line)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Waiting-since aging
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--entering-waiting-sets-waiting-since ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir))
+          (today (format-time-string "%Y-%m-%d")))
+      (with-temp-file file (insert "---\nstatus: next\n---\n\n# T\n"))
+      (my/tasks--update-property file "status" "waiting")
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :status) "waiting"))
+        (should (equal (plist-get task :waiting-since) today))))))
+
+(ert-deftest tasks-test--leaving-waiting-clears-waiting-since ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: waiting\nwaiting-since: 2020-01-01\n"
+                "---\n\n# T\n"))
+      (my/tasks--update-property file "status" "next")
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :status) "next"))
+        (should-not (plist-get task :waiting-since))))))
+
+(ert-deftest tasks-test--non-status-change-leaves-waiting-since-alone ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: waiting\nwaiting-since: 2020-01-01\n"
+                "---\n\n# T\n"))
+      (my/tasks--update-property file "due" "2026-12-31")
+      (should (equal (plist-get (my/tasks--parse-frontmatter file)
+                                :waiting-since)
+                     "2020-01-01")))))
+
+(ert-deftest tasks-test--waiting-to-waiting-noop ()
+  "Setting status to its current value must not bump waiting-since."
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: waiting\nwaiting-since: 2020-01-01\n"
+                "---\n\n# T\n"))
+      (my/tasks--update-property file "status" "waiting")
+      (should (equal (plist-get (my/tasks--parse-frontmatter file)
+                                :waiting-since)
+                     "2020-01-01")))))
+
+(ert-deftest tasks-test--days-since-basic ()
+  (let ((today (format-time-string "%Y-%m-%d"))
+        (yesterday (format-time-string
+                    "%Y-%m-%d"
+                    (time-subtract (current-time) (days-to-time 1))))
+        (week-ago (format-time-string
+                   "%Y-%m-%d"
+                   (time-subtract (current-time) (days-to-time 7)))))
+    (should (= 0 (my/tasks--days-since today)))
+    (should (= 1 (my/tasks--days-since yesterday)))
+    (should (= 7 (my/tasks--days-since week-ago)))))
+
+(ert-deftest tasks-test--waiting-card-shows-aging ()
+  (tasks-test--with-temp-dirs
+    (let ((yesterday (format-time-string
+                      "%Y-%m-%d"
+                      (time-subtract (current-time) (days-to-time 1)))))
+      (with-temp-file (expand-file-name "a.md" temp-dir)
+        (insert (format "---\nstatus: waiting\nwaiting-since: %s\n---\n\n# Reply Alice\n"
+                        yesterday)))
+      (my/tasks-show-waiting)
+      (with-current-buffer "*Waiting*"
+        (let ((text (buffer-string)))
+          (should (string-match-p "▸ Reply Alice" text))
+          (should (string-match-p "(seit 1d)" text)))))))
+
+(ert-deftest tasks-test--waiting-card-nag-face-after-threshold ()
+  "After `my/tasks-waiting-nag-days' the chip turns red."
+  (tasks-test--with-temp-dirs
+    (let* ((my/tasks-waiting-nag-days 14)
+           (long-ago (format-time-string
+                      "%Y-%m-%d"
+                      (time-subtract (current-time)
+                                     (days-to-time 20)))))
+      (with-temp-file (expand-file-name "a.md" temp-dir)
+        (insert (format "---\nstatus: waiting\nwaiting-since: %s\n---\n\n# Old\n"
+                        long-ago)))
+      (my/tasks-show-waiting)
+      (with-current-buffer "*Waiting*"
+        (goto-char (point-min))
+        (re-search-forward "(seit 20d)")
+        (goto-char (match-beginning 0))
+        (should (eq (get-text-property (point) 'face)
+                    'my/tasks-overdue-face))))))
+
+(ert-deftest tasks-test--waiting-card-fresh-uses-date-face ()
+  (tasks-test--with-temp-dirs
+    (let ((today (format-time-string "%Y-%m-%d")))
+      (with-temp-file (expand-file-name "a.md" temp-dir)
+        (insert (format "---\nstatus: waiting\nwaiting-since: %s\n---\n\n# Fresh\n"
+                        today)))
+      (my/tasks-show-waiting)
+      (with-current-buffer "*Waiting*"
+        (goto-char (point-min))
+        (re-search-forward "(seit 0d)")
+        (goto-char (match-beginning 0))
+        (should (eq (get-text-property (point) 'face)
+                    'my/tasks-date-face))))))
 
 (provide 'tasks-test)
 ;;; tasks-test.el ends here

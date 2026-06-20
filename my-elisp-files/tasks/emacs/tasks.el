@@ -38,6 +38,11 @@
   "JSON state file shared with `notify/streak.py' for the inbox-zero counter."
   :type 'file)
 
+(defcustom my/tasks-waiting-nag-days 14
+  "Days a task may sit in `status: waiting' before its `(seit Nd)' chip
+turns red as a nag-to-follow-up indicator."
+  :type 'integer)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utilities
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -92,7 +97,7 @@
 
 (defconst my/tasks--scalar-property-keys
   '(:status :due :scheduled :reminder :project :created :archived-at
-    :mu4e-msgid)
+    :mu4e-msgid :waiting-since)
   "Frontmatter keys treated as scalar strings even when YAML stores a list.
 Obsidian's Properties UI can write a logically-scalar field as a
 one-element block list; this normalises that back to a string.")
@@ -266,7 +271,13 @@ A `status:' change is recorded as an audit log entry at the end of FILE."
     (when (and (string= key "status")
                value (not (string-empty-p value))
                old-status (not (string= old-status value)))
-      (my/tasks--append-log file old-status value))))
+      (my/tasks--append-log file old-status value)
+      (cond
+       ((string= value "waiting")
+        (my/tasks--update-property file "waiting-since"
+                                   (my/tasks--today-string)))
+       ((string= old-status "waiting")
+        (my/tasks--update-property file "waiting-since" nil))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Read all tasks
@@ -543,6 +554,11 @@ Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
   "Compact key-hint shown right-aligned in the header line of tasks views.
 Press `?' in a view for the full keymap.")
 
+(defun my/tasks--days-since (date-str)
+  "Return the number of whole days from DATE-STR (YYYY-MM-DD) to today."
+  (- (time-to-days (current-time))
+     (time-to-days (date-to-time (concat date-str " 00:00")))))
+
 (defun my/tasks--archived-today-count ()
   "Count archive files whose filename begins with today's date prefix.
 Archive filenames have the form `YYYY-MM-DD-<slug>.md', so this is
@@ -797,6 +813,12 @@ Used by `my/tasks--draw-view-content' and the alarm banner alike."
     (insert (propertize (if expanded "▾ " "▸ ")
                         'face 'my/tasks-bullet-face))
     (insert (propertize title 'face 'my/tasks-title-face))
+    (when-let ((waiting-since (plist-get task :waiting-since)))
+      (let* ((days (my/tasks--days-since waiting-since))
+             (face (if (>= days my/tasks-waiting-nag-days)
+                       'my/tasks-overdue-face
+                     'my/tasks-date-face)))
+        (insert (propertize (format "  (seit %dd)" days) 'face face))))
     (when scheduled
       (insert (propertize (format "  ⏳ %s" scheduled)
                           'face (my/tasks--date-face scheduled))))
