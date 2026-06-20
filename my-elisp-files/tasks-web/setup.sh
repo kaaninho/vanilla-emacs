@@ -68,12 +68,17 @@ unload_if_loaded() {
     local plist_name="$1"
     local target="$LAUNCH_AGENTS/$plist_name"
     local label="${plist_name%.plist}"
-    if launchctl list | awk '{print $3}' | grep -qx "$label"; then
-        if [ -f "$target" ]; then
-            launchctl unload "$target" 2>/dev/null || true
-            ok "unloaded $label"
-        fi
+    if ! launchctl list | awk '{print $3}' | grep -qx "$label"; then
+        return 0  # nothing to unload
     fi
+    # Primary: unload by file path (works when the plist sits where we expect).
+    if [ -f "$target" ]; then
+        launchctl unload "$target" 2>/dev/null || true
+    fi
+    # Belt-and-suspenders: kill by label too, in case the plist was loaded
+    # from a different path or the unload above didn't fully unregister.
+    launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
+    ok "unloaded $label"
 }
 
 step "Stopping existing agents (if loaded)"
