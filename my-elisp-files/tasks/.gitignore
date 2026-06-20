@@ -3,3 +3,5 @@ __pycache__/
 *.swp
 *.swo
 .DS_Store
+# Markdown renderer artefact (e.g. from Emacs markdown-mode preview)
+README.html
