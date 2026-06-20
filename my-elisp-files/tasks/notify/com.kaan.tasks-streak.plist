@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.kaan.tasks-streak</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/python3</string>
+        <string>/Users/kaan/emacsdotfiles/my-elisp-files/tasks/notify/streak.py</string>
+    </array>
+
+    <!-- Fire once per day at 23:55. Emacs's `my/tasks-show-inbox' hook
+         covers same-day inbox-zero moments while the Mac is awake. -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>23</integer>
+        <key>Minute</key>
+        <integer>55</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/tasks-streak.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/tasks-streak.log</string>
+</dict>
+</plist>

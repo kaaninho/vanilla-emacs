@@ -1501,5 +1501,98 @@ so search hits from the archive are recognisable."
       (should-not (string-match-p "done today" line))
       (should (string-suffix-p my/tasks--view-hint line)))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Inbox-zero streak
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmacro tasks-test--with-streak-state (state &rest body)
+  "Bind `my/tasks-streak-file' to a fresh temp file pre-populated with STATE,
+run BODY, then clean up."
+  (declare (indent 1) (debug t))
+  `(let ((my/tasks-streak-file (make-temp-file "tasks-streak-" nil ".json")))
+     (unwind-protect
+         (progn
+           (when ,state (my/tasks--streak-write ,state))
+           ,@body)
+       (when (file-exists-p my/tasks-streak-file)
+         (delete-file my/tasks-streak-file)))))
+
+(ert-deftest tasks-test--streak-read-defaults-when-missing ()
+  (tasks-test--with-streak-state nil
+    (let ((state (my/tasks--streak-read)))
+      (should (= 0 (or (plist-get state :current) 0)))
+      (should (= 0 (or (plist-get state :longest) 0))))))
+
+(ert-deftest tasks-test--streak-effective-zero-when-broken ()
+  "If the last zero-day is older than yesterday, the streak displays as 0."
+  (tasks-test--with-streak-state
+      '(:current 5 :longest 7 :last_zero_date "2020-01-01")
+    (should (= 0 (my/tasks--streak-effective)))))
+
+(ert-deftest tasks-test--streak-effective-alive-yesterday ()
+  (let* ((yesterday (format-time-string
+                     "%Y-%m-%d"
+                     (time-subtract (current-time) (days-to-time 1)))))
+    (tasks-test--with-streak-state
+        (list :current 5 :longest 5 :last_zero_date yesterday)
+      (should (= 5 (my/tasks--streak-effective))))))
+
+(ert-deftest tasks-test--streak-effective-alive-today ()
+  (let ((today (format-time-string "%Y-%m-%d")))
+    (tasks-test--with-streak-state
+        (list :current 3 :longest 7 :last_zero_date today)
+      (should (= 3 (my/tasks--streak-effective))))))
+
+(ert-deftest tasks-test--streak-touch-first-time ()
+  (tasks-test--with-temp-dirs
+    (tasks-test--with-streak-state nil
+      ;; No tasks in inbox → first touch starts the streak at 1.
+      (my/tasks--streak-touch)
+      (let ((state (my/tasks--streak-read)))
+        (should (= 1 (plist-get state :current)))
+        (should (= 1 (plist-get state :longest)))
+        (should (equal (plist-get state :last_zero_date)
+                       (format-time-string "%Y-%m-%d")))))))
+
+(ert-deftest tasks-test--streak-touch-continues-from-yesterday ()
+  (tasks-test--with-temp-dirs
+    (let ((yesterday (format-time-string
+                      "%Y-%m-%d"
+                      (time-subtract (current-time) (days-to-time 1)))))
+      (tasks-test--with-streak-state
+          (list :current 4 :longest 4 :last_zero_date yesterday)
+        (my/tasks--streak-touch)
+        (should (= 5 (plist-get (my/tasks--streak-read) :current)))))))
+
+(ert-deftest tasks-test--streak-touch-idempotent-same-day ()
+  (tasks-test--with-temp-dirs
+    (let ((today (format-time-string "%Y-%m-%d")))
+      (tasks-test--with-streak-state
+          (list :current 3 :longest 3 :last_zero_date today)
+        (my/tasks--streak-touch)
+        (should (= 3 (plist-get (my/tasks--streak-read) :current)))))))
+
+(ert-deftest tasks-test--streak-touch-does-nothing-when-inbox-non-empty ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: inbox\n---\n\n# Not empty\n"))
+    (tasks-test--with-streak-state nil
+      (my/tasks--streak-touch)
+      (let ((state (my/tasks--streak-read)))
+        (should (= 0 (or (plist-get state :current) 0)))))))
+
+(ert-deftest tasks-test--header-line-shows-streak-when-alive ()
+  (tasks-test--with-streak-state
+      (list :current 7 :longest 9
+            :last_zero_date (format-time-string "%Y-%m-%d"))
+    (let ((line (my/tasks--header-line)))
+      (should (string-match-p "🔥 7d streak" line)))))
+
+(ert-deftest tasks-test--header-line-omits-streak-when-broken ()
+  (tasks-test--with-streak-state
+      '(:current 5 :longest 9 :last_zero_date "2020-01-01")
+    (let ((line (my/tasks--header-line)))
+      (should-not (string-match-p "🔥" line)))))
+
 (provide 'tasks-test)
 ;;; tasks-test.el ends here

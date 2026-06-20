@@ -33,6 +33,11 @@
   "Allowed GTD contexts. Stored on a task as the YAML list `contexts:'."
   :type '(repeat string))
 
+(defcustom my/tasks-streak-file
+  (expand-file-name "~/.tasks-streak.json")
+  "JSON state file shared with `notify/streak.py' for the inbox-zero counter."
+  :type 'file)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Utilities
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -549,20 +554,83 @@ exactly the number of tasks the user has archived today."
                        "-.*\\.md\\'")))
     0))
 
+(defun my/tasks--streak-read ()
+  "Return the streak state as a plist (:current :longest :last-zero-date).
+Falls back to defaults if the file is missing or unreadable."
+  (if (file-readable-p my/tasks-streak-file)
+      (with-temp-buffer
+        (insert-file-contents my/tasks-streak-file)
+        (condition-case nil
+            (let ((json-object-type 'plist)
+                  (json-key-type 'keyword)
+                  (json-false :json-false))
+              (goto-char (point-min))
+              (require 'json)
+              (json-read))
+          (error '(:current 0 :longest 0 :last_zero_date ""))))
+    '(:current 0 :longest 0 :last_zero_date "")))
+
+(defun my/tasks--streak-write (state)
+  "Persist STATE (plist) to `my/tasks-streak-file' as JSON."
+  (require 'json)
+  (with-temp-file my/tasks-streak-file
+    (insert (json-encode-plist state))))
+
+(defun my/tasks--streak-effective ()
+  "Return the current streak ONLY if it's still alive.
+A streak is alive when last_zero_date is today or yesterday;
+otherwise the streak has broken and 0 is returned."
+  (let* ((state (my/tasks--streak-read))
+         (last (or (plist-get state :last_zero_date) ""))
+         (today (my/tasks--today-string))
+         (yesterday (format-time-string
+                     "%Y-%m-%d"
+                     (time-subtract (current-time) (days-to-time 1)))))
+    (if (or (string= last today) (string= last yesterday))
+        (or (plist-get state :current) 0)
+      0)))
+
+(defun my/tasks--streak-touch ()
+  "If the inbox is empty right now, advance the streak counter idempotently.
+Mirrors the logic in `notify/streak.py' so an inbox-zero moment counts
+the moment the user hits it in Emacs, not just at the 23:55 cron."
+  (when (zerop (length (my/tasks-by-status "inbox")))
+    (let* ((state (my/tasks--streak-read))
+           (today (my/tasks--today-string))
+           (yesterday (format-time-string
+                       "%Y-%m-%d"
+                       (time-subtract (current-time) (days-to-time 1))))
+           (last (or (plist-get state :last_zero_date) ""))
+           (current (or (plist-get state :current) 0))
+           (longest (or (plist-get state :longest) 0)))
+      (unless (string= last today)
+        (let ((new-current (if (string= last yesterday) (1+ current) 1)))
+          (my/tasks--streak-write
+           (list :current new-current
+                 :longest (max longest new-current)
+                 :last_zero_date today)))))))
+
 (defun my/tasks--header-line ()
-  "Return the header line: optional `✓ N done today' on the left,
-key-hints right-aligned."
-  (let* ((count (my/tasks--archived-today-count))
-         (stats (if (> count 0)
-                    (propertize (format "  ✓ %d done today" count)
-                                'face 'success)
-                  "")))
-    (concat
-     stats
-     (propertize " " 'display
-                 `(space :align-to (- right
-                                      ,(+ 1 (length my/tasks--view-hint)))))
-     my/tasks--view-hint)))
+  "Return the header line: optional `🔥 Nd streak  ✓ N done today' on
+the left, key-hints right-aligned."
+  (let* ((streak (my/tasks--streak-effective))
+         (done-count (my/tasks--archived-today-count))
+         (parts '()))
+    (when (> streak 0)
+      (push (propertize (format "  🔥 %dd streak" streak)
+                        'face 'warning)
+            parts))
+    (when (> done-count 0)
+      (push (propertize (format "  ✓ %d done today" done-count)
+                        'face 'success)
+            parts))
+    (let ((left (string-join (nreverse parts) "")))
+      (concat
+       left
+       (propertize " " 'display
+                   `(space :align-to (- right
+                                        ,(+ 1 (length my/tasks--view-hint)))))
+       my/tasks--view-hint))))
 
 (defun my/tasks-view-help ()
   "Show full key bindings for `my/tasks-mode' in a help window."
@@ -876,7 +944,8 @@ and renders pending annotations plus per-task context chips."
 
 (defun my/tasks-show-inbox ()
   (interactive)
-  (my/tasks--render-buffer "*Inbox*" #'my/tasks-by-status "inbox"))
+  (my/tasks--render-buffer "*Inbox*" #'my/tasks-by-status "inbox")
+  (my/tasks--streak-touch))
 
 (defun my/tasks-show-archive ()
   "Show archived tasks."

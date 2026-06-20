@@ -19,6 +19,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
 NOTIFY_PLIST_NAME="com.kaan.tasks-notify.plist"
 WEB_PLIST_NAME="com.kaan.tasks-web.plist"
+STREAK_PLIST_NAME="com.kaan.tasks-streak.plist"
 
 # Subdirectories of $SCRIPT_DIR (tasks/).
 WEB_DIR="$SCRIPT_DIR/tasks-web"
@@ -64,8 +65,8 @@ fi
 step "Running Python test suite"
 ( cd "$LIB_DIR"    && python3 -m unittest test_tasks_lib ) \
     || fail "test_tasks_lib failed"
-( cd "$NOTIFY_DIR" && python3 -m unittest test_notify ) \
-    || fail "test_notify failed"
+( cd "$NOTIFY_DIR" && python3 -m unittest test_notify test_streak ) \
+    || fail "notify/streak tests failed"
 ok "all tests green"
 
 # 4. Stop existing agents (idempotent) -------------------------------------
@@ -91,6 +92,7 @@ unload_if_loaded() {
 step "Stopping existing agents (if loaded)"
 unload_if_loaded "$NOTIFY_PLIST_NAME"
 unload_if_loaded "$WEB_PLIST_NAME"
+unload_if_loaded "$STREAK_PLIST_NAME"
 
 # 5. Install plists --------------------------------------------------------
 step "Installing plists into $LAUNCH_AGENTS"
@@ -98,6 +100,8 @@ cp "$NOTIFY_DIR/$NOTIFY_PLIST_NAME" "$LAUNCH_AGENTS/"
 ok "$NOTIFY_PLIST_NAME"
 cp "$WEB_DIR/$WEB_PLIST_NAME" "$LAUNCH_AGENTS/"
 ok "$WEB_PLIST_NAME"
+cp "$NOTIFY_DIR/$STREAK_PLIST_NAME" "$LAUNCH_AGENTS/"
+ok "$STREAK_PLIST_NAME"
 
 # 6. Load ------------------------------------------------------------------
 step "Loading launchd agents"
@@ -105,6 +109,8 @@ launchctl load "$LAUNCH_AGENTS/$NOTIFY_PLIST_NAME"
 ok "loaded com.kaan.tasks-notify"
 launchctl load "$LAUNCH_AGENTS/$WEB_PLIST_NAME"
 ok "loaded com.kaan.tasks-web"
+launchctl load "$LAUNCH_AGENTS/$STREAK_PLIST_NAME"
+ok "loaded com.kaan.tasks-streak"
 
 # 7. Summary ---------------------------------------------------------------
 printf "\n"
