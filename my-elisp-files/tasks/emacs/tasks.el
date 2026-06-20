@@ -278,6 +278,39 @@ those lines are removed/replaced along with the matched header line."
                   (and (listp cs) (member ctx cs))))
               (my/read-tasks)))
 
+(defun my/tasks--alarm-state (task)
+  "Return `'overdue', `'today' or nil for TASK based on its date fields.
+A date in the past on `due'/`scheduled'/`reminder' counts as overdue;
+a date matching today counts as today. Overdue wins over today."
+  (let ((today (my/tasks--today-string))
+        (worst nil))
+    (dolist (key '(:due :scheduled :reminder))
+      (let ((val (plist-get task key)))
+        (when val
+          (let ((d (substring val 0 (min 10 (length val)))))
+            (cond
+             ((string< d today) (setq worst 'overdue))
+             ((and (not (eq worst 'overdue))
+                   (string= d today))
+              (setq worst 'today)))))))
+    worst))
+
+(defun my/tasks--collect-alarms ()
+  "Scan all active tasks for date-based alarms.
+Returns (OVERDUE . TODAY) — two lists of task plists. OVERDUE is
+sorted by earliest `due'/`scheduled' first."
+  (let (overdue today)
+    (dolist (task (my/read-tasks))
+      (pcase (my/tasks--alarm-state task)
+        ('overdue (push task overdue))
+        ('today (push task today))))
+    (cons (sort overdue
+                (lambda (a b)
+                  (let ((da (or (plist-get a :due) (plist-get a :scheduled) ""))
+                        (db (or (plist-get b :due) (plist-get b :scheduled) "")))
+                    (string< da db))))
+          (nreverse today))))
+
 (defun my/tasks--file-contains-p (file query)
   "Return non-nil if FILE's contents contain QUERY (case-insensitive)."
   (with-temp-buffer
@@ -417,6 +450,11 @@ Applied (committed to disk) on the next refresh or reopen.")
   "If non-nil, restrict the current view to tasks containing this context.
 Cleared by passing an empty string to `my/tasks-view-filter-context'.")
 
+(defvar my/tasks-show-alarm-banner t
+  "When non-nil, views render an alarm banner at the top listing all
+active tasks with `due'/`scheduled'/`reminder' overdue or today.
+Toggle with `my/tasks-toggle-alarm-banner' (`a' in a view).")
+
 (defvar-local my/tasks-expanded-files nil
   "List of task file paths whose body is inlined under their entry.
 Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
@@ -459,6 +497,7 @@ Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
   (define-key map (kbd "m") #'my/tasks-open-mail)
   (define-key map (kbd "k") #'my/tasks-set-contexts)
   (define-key map (kbd "f") #'my/tasks-view-filter-context)
+  (define-key map (kbd "a") #'my/tasks-toggle-alarm-banner)
   (define-key map (kbd "/") #'my/tasks-search)
   (define-key map (kbd "g") #'my/tasks-view-refresh)
   (define-key map (kbd "v") #'my/tasks-view-cycle)
@@ -470,7 +509,7 @@ Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
   (define-key map (kbd "q") #'quit-window))
 
 (defconst my/tasks--view-hint
-  "RET·open  t·today  x·done  d·due  p·status  k·ctx  /·search  ?·help  q·quit"
+  "RET·open  t·today  x·done  d·due  p·status  k·ctx  a·alarm  /·search  ?·help  q·quit"
   "Compact key-hint shown right-aligned in the header line of tasks views.
 Press `?' in a view for the full keymap.")
 
@@ -498,6 +537,7 @@ Press `?' in a view for the full keymap.")
     (princ "  m     open the linked mu4e message\n\n")
     (princ "Filter / search:\n")
     (princ "  f     filter current view by a context\n")
+    (princ "  a     toggle the overdue/today alarm banner\n")
     (princ "  /     search all tasks (active + archive)\n\n")
     (princ "Navigation:\n")
     (princ "  g     refresh (commits pending status changes)\n")
@@ -624,6 +664,74 @@ Trimmed; returns empty string when there is no body."
         (unless found (forward-line 1)))
       (when found (goto-char found) t))))
 
+(defun my/tasks--render-task-line (task)
+  "Insert one rendered task card (1-2 lines) at point.
+Used by `my/tasks--draw-view-content' and the alarm banner alike."
+  (let* ((title (plist-get task :title))
+         (due (plist-get task :due))
+         (scheduled (plist-get task :scheduled))
+         (reminder (plist-get task :reminder))
+         (project (plist-get task :project))
+         (contexts (plist-get task :contexts))
+         (file (plist-get task :file))
+         (pending (cdr (assoc file my/tasks-pending-changes)))
+         (expanded (member file my/tasks-expanded-files))
+         (start (point)))
+    (insert (propertize (if expanded "▾ " "▸ ")
+                        'face 'my/tasks-bullet-face))
+    (insert (propertize title 'face 'my/tasks-title-face))
+    (when scheduled
+      (insert (propertize (format "  ⏳ %s" scheduled)
+                          'face (my/tasks--date-face scheduled))))
+    (when due
+      (insert (propertize (format "  📅 %s" due)
+                          'face (my/tasks--date-face due))))
+    (when reminder
+      (insert (propertize (format "  ⏰ %s" reminder)
+                          'face 'my/tasks-date-face)))
+    (when project
+      (insert (propertize (format "  %s" project)
+                          'face 'my/tasks-project-face)))
+    (when (listp contexts)
+      (dolist (c contexts)
+        (insert (propertize (format "  %s" c)
+                            'face 'my/tasks-context-face))))
+    (when-let ((archived-at (plist-get task :archived-at)))
+      (insert (propertize (format "  📦 %s" archived-at)
+                          'face 'my/tasks-date-face)))
+    (when pending
+      (insert (propertize (format "  → %s" pending)
+                          'face 'my/tasks-pending-face)))
+    (insert "\n")
+    (add-text-properties start (1- (point)) (list 'my/task-file file))
+    (when expanded
+      (let* ((body (my/tasks--read-body file))
+             (body-start (point)))
+        (unless (string-empty-p body)
+          (insert (replace-regexp-in-string "^" "    " body))
+          (insert "\n")
+          (add-text-properties body-start (point)
+                               (list 'my/task-file file)))))))
+
+(defun my/tasks--insert-alarm-banner ()
+  "If there are overdue or today-triggered tasks, render a banner at point."
+  (let* ((alarms (my/tasks--collect-alarms))
+         (overdue (car alarms))
+         (today (cdr alarms)))
+    (when (or overdue today)
+      (when overdue
+        (insert (propertize (format "⚠ Überfällig (%d)\n" (length overdue))
+                            'face 'my/tasks-overdue-face))
+        (dolist (task overdue)
+          (my/tasks--render-task-line task))
+        (insert "\n"))
+      (when today
+        (insert (propertize (format "📅 Heute (%d)\n" (length today))
+                            'face 'my/tasks-due-today-face))
+        (dolist (task today)
+          (my/tasks--render-task-line task))
+        (insert "\n")))))
+
 (defun my/tasks--draw-view-content (display-title tasks query-fn arg)
   "Insert view content with TASKS into current buffer.
 Honours the buffer-local context filter (`my/tasks-view-context-filter')
@@ -651,53 +759,11 @@ and renders pending annotations plus per-task context chips."
     (insert (propertize (make-string rule-len ?─)
                         'face 'my/tasks-rule-face)))
   (insert "\n\n")
+  (when my/tasks-show-alarm-banner
+    (my/tasks--insert-alarm-banner))
   (if tasks
       (dolist (task tasks)
-        (let* ((title (plist-get task :title))
-               (due (plist-get task :due))
-               (scheduled (plist-get task :scheduled))
-               (reminder (plist-get task :reminder))
-               (project (plist-get task :project))
-               (contexts (plist-get task :contexts))
-               (file (plist-get task :file))
-               (pending (cdr (assoc file my/tasks-pending-changes)))
-               (expanded (member file my/tasks-expanded-files))
-               (start (point)))
-          (insert (propertize (if expanded "▾ " "▸ ")
-                              'face 'my/tasks-bullet-face))
-          (insert (propertize title 'face 'my/tasks-title-face))
-          (when scheduled
-            (insert (propertize (format "  ⏳ %s" scheduled)
-                                'face (my/tasks--date-face scheduled))))
-          (when due
-            (insert (propertize (format "  📅 %s" due)
-                                'face (my/tasks--date-face due))))
-          (when reminder
-            (insert (propertize (format "  ⏰ %s" reminder)
-                                'face 'my/tasks-date-face)))
-          (when project
-            (insert (propertize (format "  %s" project)
-                                'face 'my/tasks-project-face)))
-          (when (listp contexts)
-            (dolist (c contexts)
-              (insert (propertize (format "  %s" c)
-                                  'face 'my/tasks-context-face))))
-          (when-let ((archived-at (plist-get task :archived-at)))
-            (insert (propertize (format "  📦 %s" archived-at)
-                                'face 'my/tasks-date-face)))
-          (when pending
-            (insert (propertize (format "  → %s" pending)
-                                'face 'my/tasks-pending-face)))
-          (insert "\n")
-          (add-text-properties start (1- (point)) (list 'my/task-file file))
-          (when expanded
-            (let* ((body (my/tasks--read-body file))
-                   (body-start (point)))
-              (unless (string-empty-p body)
-                (insert (replace-regexp-in-string "^" "    " body))
-                (insert "\n")
-                (add-text-properties body-start (point)
-                                     (list 'my/task-file file)))))))
+        (my/tasks--render-task-line task))
     (insert (propertize "Keine Tasks." 'face 'shadow))
     (insert "\n"))
   (goto-char (or (next-single-property-change (point-min) 'my/task-file)
@@ -910,6 +976,15 @@ In a view buffer the change is queued and applied on next refresh/reopen."
       (my/tasks--update-list-property file "contexts" contexts)
       (when (derived-mode-p 'my/tasks-mode)
         (my/tasks--redraw-view)))))
+
+(defun my/tasks-toggle-alarm-banner ()
+  "Toggle the overdue/today alarm banner in tasks views."
+  (interactive)
+  (setq my/tasks-show-alarm-banner (not my/tasks-show-alarm-banner))
+  (when (derived-mode-p 'my/tasks-mode)
+    (my/tasks--redraw-view))
+  (message "Tasks alarm banner: %s"
+           (if my/tasks-show-alarm-banner "on" "off")))
 
 (defun my/tasks-view-filter-context ()
   "Filter the current view by a context.
@@ -1254,6 +1329,7 @@ Supports both new (`mu4e-view-message-with-message-id') and old
 (global-set-key (kbd "C-c t @") #'my/tasks-show-context)
 (global-set-key (kbd "C-c t /") #'my/tasks-search)
 (global-set-key (kbd "C-c t I") #'my/tasks-process-inbox)
+(global-set-key (kbd "C-c t a") #'my/tasks-toggle-alarm-banner)
 
 (provide 'tasks)
 ;;; tasks.el ends here

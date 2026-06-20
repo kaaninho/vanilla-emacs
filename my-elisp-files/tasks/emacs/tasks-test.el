@@ -1186,5 +1186,111 @@ so search hits from the archive are recognisable."
               (should (string-match-p "inbox-processing wizard" text)))))
       (when (get-buffer "*Tasks Help*") (kill-buffer "*Tasks Help*")))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Alarm banner (overdue / today)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--alarm-state-overdue ()
+  (should (eq 'overdue (my/tasks--alarm-state (list :due "1999-01-01"))))
+  (should (eq 'overdue (my/tasks--alarm-state (list :scheduled "1999-01-01"))))
+  (should (eq 'overdue
+              (my/tasks--alarm-state (list :reminder "1999-01-01 09:00")))))
+
+(ert-deftest tasks-test--alarm-state-today ()
+  (let ((today (format-time-string "%Y-%m-%d")))
+    (should (eq 'today (my/tasks--alarm-state (list :due today))))
+    (should (eq 'today (my/tasks--alarm-state (list :scheduled today))))
+    (should (eq 'today (my/tasks--alarm-state
+                        (list :reminder (concat today " 09:00")))))))
+
+(ert-deftest tasks-test--alarm-state-future-is-nil ()
+  (should-not (my/tasks--alarm-state (list :due "2999-12-31")))
+  (should-not (my/tasks--alarm-state '()))
+  (should-not (my/tasks--alarm-state (list :title "no dates"))))
+
+(ert-deftest tasks-test--alarm-state-overdue-trumps-today ()
+  "If any date field is overdue, the result is `overdue' regardless of the rest."
+  (let ((today (format-time-string "%Y-%m-%d")))
+    (should (eq 'overdue
+                (my/tasks--alarm-state
+                 (list :due today :scheduled "1999-01-01"))))))
+
+(ert-deftest tasks-test--collect-alarms-buckets ()
+  (tasks-test--with-temp-dirs
+    (let ((today (format-time-string "%Y-%m-%d")))
+      (with-temp-file (expand-file-name "a.md" temp-dir)
+        (insert "---\nstatus: next\ndue: 1999-01-01\n---\n\n# Overdue A\n"))
+      (with-temp-file (expand-file-name "b.md" temp-dir)
+        (insert (format "---\nstatus: next\ndue: %s\n---\n\n# Today B\n"
+                        today)))
+      (with-temp-file (expand-file-name "c.md" temp-dir)
+        (insert "---\nstatus: next\n---\n\n# No-date C\n"))
+      (let* ((alarms (my/tasks--collect-alarms))
+             (overdue (car alarms))
+             (today-list (cdr alarms)))
+        (should (= 1 (length overdue)))
+        (should (= 1 (length today-list)))
+        (should (equal (plist-get (car overdue) :title) "Overdue A"))
+        (should (equal (plist-get (car today-list) :title) "Today B"))))))
+
+(ert-deftest tasks-test--collect-alarms-overdue-sorted-oldest-first ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: next\ndue: 2020-06-01\n---\n\n# Newer\n"))
+    (with-temp-file (expand-file-name "b.md" temp-dir)
+      (insert "---\nstatus: next\ndue: 1999-01-01\n---\n\n# Older\n"))
+    (let* ((overdue (car (my/tasks--collect-alarms)))
+           (titles (mapcar (lambda (t) (plist-get t :title)) overdue)))
+      (should (equal titles '("Older" "Newer"))))))
+
+(ert-deftest tasks-test--view-renders-alarm-banner-when-enabled ()
+  "Banner section shows overdue + today across all active statuses."
+  (tasks-test--with-temp-dirs
+    (let ((today (format-time-string "%Y-%m-%d"))
+          (my/tasks-show-alarm-banner t))
+      (with-temp-file (expand-file-name "a.md" temp-dir)
+        (insert "---\nstatus: someday\ndue: 1999-01-01\n---\n\n# Old Stale\n"))
+      (with-temp-file (expand-file-name "b.md" temp-dir)
+        (insert (format "---\nstatus: next\ndue: %s\n---\n\n# Reply Today\n"
+                        today)))
+      (my/tasks-show-inbox)
+      (with-current-buffer "*Inbox*"
+        (let ((text (buffer-string)))
+          (should (string-match-p "⚠ Überfällig" text))
+          (should (string-match-p "▸ Old Stale" text))
+          (should (string-match-p "📅 Heute" text))
+          (should (string-match-p "▸ Reply Today" text)))))))
+
+(ert-deftest tasks-test--view-hides-alarm-banner-when-disabled ()
+  (tasks-test--with-temp-dirs
+    (let ((today (format-time-string "%Y-%m-%d"))
+          (my/tasks-show-alarm-banner nil))
+      (with-temp-file (expand-file-name "a.md" temp-dir)
+        (insert (format "---\nstatus: next\ndue: %s\n---\n\n# T\n" today)))
+      (my/tasks-show-inbox)
+      (with-current-buffer "*Inbox*"
+        (let ((text (buffer-string)))
+          (should-not (string-match-p "⚠ Überfällig" text))
+          (should-not (string-match-p "📅 Heute" text)))))))
+
+(ert-deftest tasks-test--view-no-banner-when-no-alarms ()
+  "Even with the flag on, no banner is drawn when no task triggers."
+  (tasks-test--with-temp-dirs
+    (let ((my/tasks-show-alarm-banner t))
+      (with-temp-file (expand-file-name "a.md" temp-dir)
+        (insert "---\nstatus: inbox\n---\n\n# No-date task\n"))
+      (my/tasks-show-inbox)
+      (with-current-buffer "*Inbox*"
+        (let ((text (buffer-string)))
+          (should-not (string-match-p "⚠ Überfällig" text))
+          (should-not (string-match-p "📅 Heute" text)))))))
+
+(ert-deftest tasks-test--toggle-alarm-banner-flips-flag ()
+  (let ((my/tasks-show-alarm-banner t))
+    (my/tasks-toggle-alarm-banner)
+    (should (eq my/tasks-show-alarm-banner nil))
+    (my/tasks-toggle-alarm-banner)
+    (should (eq my/tasks-show-alarm-banner t))))
+
 (provide 'tasks-test)
 ;;; tasks-test.el ends here
