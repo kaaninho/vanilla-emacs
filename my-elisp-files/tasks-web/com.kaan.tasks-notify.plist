@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.kaan.tasks-notify</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/python3</string>
+        <string>/Users/kaan/emacsdotfiles/my-elisp-files/tasks-web/notify.py</string>
+    </array>
+
+    <!-- Fire every 60 s. launchd catches up after sleep/wake. -->
+    <key>StartInterval</key>
+    <integer>60</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Logs (handy for debugging; safe to delete). -->
+    <key>StandardOutPath</key>
+    <string>/tmp/tasks-notify.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/tasks-notify.log</string>
+
+    <!-- Override env vars here if you need a custom Obsidian path,
+         state file location, or morning hour. -->
+    <!--
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>OBSIDIAN_DIR</key>
+        <string>/Users/kaan/…</string>
+        <key>TASKS_NOTIFY_MORNING_HOUR</key>
+        <string>9</string>
+    </dict>
+    -->
+</dict>
+</plist>

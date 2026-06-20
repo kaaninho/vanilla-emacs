@@ -36,6 +36,58 @@ Konfiguration via Env-Variablen:
   - `r` Reload
   - `Esc` Modal schließen
 
+## Notifications (macOS)
+
+`notify.py` ist ein launchd-Script, das alle 60 s die aktiven Task-
+Dateien scannt und macOS-Banner für die drei Datums-Felder feuert:
+
+- `reminder: 2026-06-20 09:00` — One-shot, feuert sobald `now ≥ Zeit`
+- `scheduled: 2026-06-20`     — Einmal pro Tag ab dem Datum, ab
+  `TASKS_NOTIFY_MORNING_HOUR` (default 09:00)
+- `due: 2026-06-20`           — Genauso. Überfällige Tasks feuern an
+  jedem neuen Tag erneut (genau einmal), bis sie archiviert sind
+
+Wenn dein Rechner um 09:00 schläft und du um 10:00 aufmachst,
+fängt launchd das nachträglich ab — du bekommst die Notification.
+Ein State-File (`~/.tasks-notify-state.json`) verhindert Doppel-
+Notifications am selben Tag.
+
+### Install
+
+```sh
+cp tasks-web/com.kaan.tasks-notify.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.kaan.tasks-notify.plist
+```
+
+Beim ersten Notification-Versuch fragt macOS nach der "Notify"-
+Berechtigung — einmal erlauben.
+
+### Uninstall
+
+```sh
+launchctl unload ~/Library/LaunchAgents/com.kaan.tasks-notify.plist
+rm ~/Library/LaunchAgents/com.kaan.tasks-notify.plist
+```
+
+### Konfiguration (alle optional)
+
+| Env-Var | Default | Effekt |
+|---|---|---|
+| `OBSIDIAN_DIR` | iCloud-Pfad | Wo `tasks/` liegt |
+| `TASKS_NOTIFY_STATE` | `~/.tasks-notify-state.json` | State-Datei |
+| `TASKS_NOTIFY_MORNING_HOUR` | `9` | Stunde für date-only Trigger |
+| `TASKS_NOTIFY_SOUND` | `Glass` | macOS-Notification-Sound |
+
+In der `.plist` einfach unter `EnvironmentVariables` setzen.
+
+### Debug
+
+Logs landen in `/tmp/tasks-notify.log`. Manuell auslösen:
+
+```sh
+python3 tasks-web/notify.py
+```
+
 ## Frontend bauen
 
 `app.js` wird aus `app.ts` (TypeScript) generiert. Falls du das
