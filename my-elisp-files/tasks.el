@@ -465,6 +465,7 @@ Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
   (define-key map (kbd "i") #'my/tasks-show-inbox)
   (define-key map (kbd "T") #'my/tasks-show-today)
   (define-key map (kbd "A") #'my/tasks-show-archive)
+  (define-key map (kbd "I") #'my/tasks-process-inbox)
   (define-key map (kbd "q") #'quit-window))
 
 (define-derived-mode my/tasks-mode special-mode "Tasks"
@@ -882,6 +883,156 @@ Empty input clears the filter; setting a new value triggers a redraw."
     (my/tasks--redraw-view)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Inbox-Processing Wizard
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun my/tasks--update-title (file new-title)
+  "Replace the H1 in FILE with NEW-TITLE.
+Inserts a new H1 line just after the closing `---' of the frontmatter
+if no H1 is found."
+  (let ((buf (find-file-noselect file)))
+    (with-current-buffer buf
+      (save-excursion
+        (goto-char (point-min))
+        (if (re-search-forward "^# .*$" nil t)
+            (replace-match (format "# %s" new-title) t t)
+          ;; No H1: skip past the closing frontmatter ---, then insert.
+          (goto-char (point-min))
+          (when (looking-at "^---\n")
+            (forward-line 1)
+            (when (re-search-forward "^---$" nil t)
+              (forward-line 1)
+              (insert (format "\n# %s\n" new-title))))))
+      (save-buffer))))
+
+(defun my/tasks--wizard-rename (file new-title)
+  "Rename FILE's task to NEW-TITLE if it differs from current and is non-empty.
+Returns t when the title was actually changed."
+  (let ((current (plist-get (my/tasks--parse-frontmatter file) :title)))
+    (cond
+     ((null new-title) nil)
+     ((string-empty-p (string-trim new-title)) nil)
+     ((string= new-title current) nil)
+     (t (my/tasks--update-title file new-title) t))))
+
+(defun my/tasks--wizard-defer-date (char)
+  "Return a YYYY-MM-DD date string from defer keystroke CHAR.
+?1 = +1 day, ?7 = +1 week, ?m = +30 days, ?d = read date via org calendar."
+  (pcase char
+    (?1 (format-time-string "%Y-%m-%d"
+                            (time-add (current-time) (days-to-time 1))))
+    (?7 (format-time-string "%Y-%m-%d"
+                            (time-add (current-time) (days-to-time 7))))
+    (?m (format-time-string "%Y-%m-%d"
+                            (time-add (current-time) (days-to-time 30))))
+    (?d (my/tasks--read-date nil "Defer to: "))))
+
+(defun my/tasks--apply-wizard-action (file action &optional payload)
+  "Apply ACTION (symbol) to FILE. PAYLOAD is action-specific.
+
+Actions:
+  today / next / waiting / someday — set status only
+  done                              — archive (status=done, move to archive dir)
+  trash                             — delete the file
+  defer                             — status=next + scheduled=PAYLOAD (date string)"
+  (pcase action
+    ('today    (my/tasks--update-property file "status" "today"))
+    ('next     (my/tasks--update-property file "status" "next"))
+    ('waiting  (my/tasks--update-property file "status" "waiting"))
+    ('someday  (my/tasks--update-property file "status" "someday"))
+    ('done     (my/tasks--archive-file file))
+    ('trash
+     (let ((buf (get-file-buffer file)))
+       (when buf
+         (with-current-buffer buf (set-buffer-modified-p nil))
+         (kill-buffer buf)))
+     (delete-file file))
+    ('defer
+     (my/tasks--update-property file "status" "next")
+     (my/tasks--update-property file "scheduled" payload))
+    (_ (error "Unknown wizard action: %s" action))))
+
+(defconst my/tasks--wizard-action-chars
+  '(?t ?n ?w ?s ?x ?T ?+ ?i ?q)
+  "Valid keystrokes for the inbox-wizard status prompt.")
+
+(defconst my/tasks--wizard-defer-chars
+  '(?1 ?7 ?m ?d)
+  "Valid keystrokes for the inbox-wizard defer sub-prompt.")
+
+;; --- Prompt wrappers (mockable for tests) ---
+
+(defun my/tasks--wizard-read-title (prompt default)
+  "Wrapper around `read-from-minibuffer' so tests can stub it cleanly."
+  (read-from-minibuffer prompt default))
+
+(defun my/tasks--wizard-read-char (prompt chars)
+  "Wrapper around `read-char-choice'."
+  (read-char-choice prompt chars))
+
+(defun my/tasks--wizard-confirm (prompt)
+  "Wrapper around `y-or-n-p'."
+  (y-or-n-p prompt))
+
+(defun my/tasks--wizard-process-one (file i total)
+  "Run the wizard for FILE (item I of TOTAL).
+Returns t if a destination action was applied, nil if skipped.
+Throws `tasks-wizard-quit' if the user chooses to quit."
+  (let* ((task (my/tasks--parse-frontmatter file))
+         (orig-title (plist-get task :title))
+         (typed (my/tasks--wizard-read-title
+                 (format "[%d/%d] Title (Enter to keep): " i total)
+                 orig-title)))
+    (my/tasks--wizard-rename file typed))
+  (let* ((title (plist-get (my/tasks--parse-frontmatter file) :title))
+         (prompt (format
+                  "[%d/%d] %s\n  [t]oday [n]ext [w]aiting [s]omeday [x]done [T]rash [+]defer [i]skip [q]uit: "
+                  i total title))
+         (choice (my/tasks--wizard-read-char
+                  prompt my/tasks--wizard-action-chars)))
+    (pcase choice
+      (?q (throw 'tasks-wizard-quit nil))
+      (?i nil)
+      (?+ (let* ((sub (my/tasks--wizard-read-char
+                       "Defer: [1] +1d  [7] +1w  [m] +1mo  [d] pick date: "
+                       my/tasks--wizard-defer-chars))
+                 (date (my/tasks--wizard-defer-date sub)))
+            (my/tasks--apply-wizard-action file 'defer date)
+            t))
+      (?T (when (my/tasks--wizard-confirm (format "Wirklich löschen %s? " title))
+            (my/tasks--apply-wizard-action file 'trash)
+            t))
+      (?t (my/tasks--apply-wizard-action file 'today) t)
+      (?n (my/tasks--apply-wizard-action file 'next) t)
+      (?w (my/tasks--apply-wizard-action file 'waiting) t)
+      (?s (my/tasks--apply-wizard-action file 'someday) t)
+      (?x (my/tasks--apply-wizard-action file 'done) t))))
+
+(defun my/tasks-process-inbox ()
+  "Walk through every Inbox task one by one to formulate a next action.
+
+For each item: prompt to rename the title to a concrete next action
+\(Enter keeps the existing title), then pick a status with a single key:
+  t today  n next  w waiting  s someday  x done(<2min)  T trash  + defer
+  i skip   q quit
+Defer asks for a span (+1d/+1w/+1mo/pick) and sets status to next."
+  (interactive)
+  (let* ((items (my/tasks-by-status "inbox"))
+         (total (length items)))
+    (if (zerop total)
+        (message "Inbox is empty.")
+      (let ((processed 0)
+            (i 0))
+        (catch 'tasks-wizard-quit
+          (dolist (task items)
+            (cl-incf i)
+            (let ((file (plist-get task :file)))
+              (when (and file (file-exists-p file))
+                (when (my/tasks--wizard-process-one file i total)
+                  (cl-incf processed))))))
+        (message "Inbox wizard: processed %d of %d." processed total)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Archive
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -1060,6 +1211,7 @@ Supports both new (`mu4e-view-message-with-message-id') and old
 (global-set-key (kbd "C-c t k") #'my/tasks-set-contexts)
 (global-set-key (kbd "C-c t @") #'my/tasks-show-context)
 (global-set-key (kbd "C-c t /") #'my/tasks-search)
+(global-set-key (kbd "C-c t I") #'my/tasks-process-inbox)
 
 (provide 'tasks)
 ;;; tasks.el ends here

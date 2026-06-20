@@ -869,5 +869,283 @@ so search hits from the archive are recognisable."
     (should (eq (my/tasks--date-face "2999-01-01") 'my/tasks-date-face))
     (should-not (my/tasks--date-face nil))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Inbox-processing wizard
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; --- pure: my/tasks--update-title ---
+
+(ert-deftest tasks-test--update-title-replaces-h1 ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\n---\n\n# Old Title\n\nbody\n"))
+      (my/tasks--update-title file "New Title")
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :title) "New Title")))
+      (with-temp-buffer
+        (insert-file-contents file)
+        (should-not (string-match-p "# Old Title" (buffer-string)))
+        (should (string-match-p "body" (buffer-string)))))))
+
+(ert-deftest tasks-test--update-title-inserts-when-missing ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\n---\n\nbody only\n"))
+      (my/tasks--update-title file "Inserted")
+      (should (equal (plist-get (my/tasks--parse-frontmatter file) :title)
+                     "Inserted")))))
+
+;; --- pure: my/tasks--wizard-rename ---
+
+(ert-deftest tasks-test--wizard-rename-changes-title ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\n---\n\n# Steuererklärung\n"))
+      (should (my/tasks--wizard-rename
+               file "Steuerbüro Anruf wegen Termin"))
+      (should (equal (plist-get (my/tasks--parse-frontmatter file) :title)
+                     "Steuerbüro Anruf wegen Termin")))))
+
+(ert-deftest tasks-test--wizard-rename-noop-on-same ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\n---\n\n# Same\n"))
+      (should-not (my/tasks--wizard-rename file "Same"))
+      (should (equal (plist-get (my/tasks--parse-frontmatter file) :title)
+                     "Same")))))
+
+(ert-deftest tasks-test--wizard-rename-noop-on-empty ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\n---\n\n# Keep me\n"))
+      (should-not (my/tasks--wizard-rename file ""))
+      (should-not (my/tasks--wizard-rename file "   "))
+      (should-not (my/tasks--wizard-rename file nil))
+      (should (equal (plist-get (my/tasks--parse-frontmatter file) :title)
+                     "Keep me")))))
+
+;; --- pure: my/tasks--wizard-defer-date ---
+
+(ert-deftest tasks-test--wizard-defer-date-spans ()
+  (let ((today (format-time-string "%Y-%m-%d"))
+        (plus1 (format-time-string
+                "%Y-%m-%d" (time-add (current-time) (days-to-time 1))))
+        (plus7 (format-time-string
+                "%Y-%m-%d" (time-add (current-time) (days-to-time 7))))
+        (plus30 (format-time-string
+                 "%Y-%m-%d" (time-add (current-time) (days-to-time 30)))))
+    (should (equal (my/tasks--wizard-defer-date ?1) plus1))
+    (should (equal (my/tasks--wizard-defer-date ?7) plus7))
+    (should (equal (my/tasks--wizard-defer-date ?m) plus30))
+    (should-not (equal (my/tasks--wizard-defer-date ?1) today))))
+
+;; --- pure: my/tasks--apply-wizard-action ---
+
+(ert-deftest tasks-test--apply-wizard-action-status-keys ()
+  (tasks-test--with-temp-dirs
+    (dolist (case '((today . "today")
+                    (next . "next")
+                    (waiting . "waiting")
+                    (someday . "someday")))
+      (let* ((sym (car case))
+             (expected (cdr case))
+             (file (expand-file-name (format "%s.md" expected) temp-dir)))
+        (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# A\n"))
+        (my/tasks--apply-wizard-action file sym)
+        (should (equal (plist-get (my/tasks--parse-frontmatter file) :status)
+                       expected))))))
+
+(ert-deftest tasks-test--apply-wizard-action-done-archives ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# A\n"))
+      (my/tasks--apply-wizard-action file 'done)
+      (should-not (file-exists-p file))
+      (should (= 1 (length (directory-files my/tasks-archive-directory
+                                            t "\\.md\\'")))))))
+
+(ert-deftest tasks-test--apply-wizard-action-trash ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# A\n"))
+      (my/tasks--apply-wizard-action file 'trash)
+      (should-not (file-exists-p file))
+      ;; Archive dir untouched (no file produced there).
+      (when (file-directory-p my/tasks-archive-directory)
+        (should-not (directory-files my/tasks-archive-directory
+                                     nil "\\.md\\'"))))))
+
+(ert-deftest tasks-test--apply-wizard-action-defer ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# A\n"))
+      (my/tasks--apply-wizard-action file 'defer "2099-12-31")
+      (let ((task (my/tasks--parse-frontmatter file)))
+        (should (equal (plist-get task :status) "next"))
+        (should (equal (plist-get task :scheduled) "2099-12-31"))))))
+
+(ert-deftest tasks-test--apply-wizard-action-rejects-unknown ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# A\n"))
+      (should-error (my/tasks--apply-wizard-action file 'no-such-action)))))
+
+;; --- integration: process-inbox end-to-end ---
+
+(ert-deftest tasks-test--process-inbox-empty ()
+  "Empty inbox: wizard exits silently, no error, no file changes."
+  (tasks-test--with-temp-dirs
+    ;; No files in inbox — just call. Test passes if no error.
+    (my/tasks-process-inbox)
+    (should-not (directory-files my/tasks-directory nil "\\.md\\'"))))
+
+(ert-deftest tasks-test--process-inbox-rename-and-next ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: inbox\n---\n\n# Steuererklärung\n"))
+    (cl-letf (((symbol-function 'my/tasks--wizard-read-title)
+               (lambda (_prompt _default) "Steuerbüro Anruf wegen Termin"))
+              ((symbol-function 'my/tasks--wizard-read-char)
+               (lambda (_prompt _chars) ?n)))
+      (my/tasks-process-inbox))
+    (let ((task (my/tasks--parse-frontmatter
+                 (expand-file-name "a.md" temp-dir))))
+      (should (equal (plist-get task :title)
+                     "Steuerbüro Anruf wegen Termin"))
+      (should (equal (plist-get task :status) "next")))))
+
+(ert-deftest tasks-test--process-inbox-skip-keeps-state ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: inbox\n---\n\n# Untouched\n"))
+    (cl-letf (((symbol-function 'my/tasks--wizard-read-title)
+               (lambda (_p default) default))
+              ((symbol-function 'my/tasks--wizard-read-char)
+               (lambda (_p _c) ?i)))
+      (my/tasks-process-inbox))
+    (let ((task (my/tasks--parse-frontmatter
+                 (expand-file-name "a.md" temp-dir))))
+      (should (equal (plist-get task :title) "Untouched"))
+      (should (equal (plist-get task :status) "inbox")))))
+
+(ert-deftest tasks-test--process-inbox-done-archives ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "a.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# Quick task\n"))
+      (cl-letf (((symbol-function 'my/tasks--wizard-read-title)
+                 (lambda (_p default) default))
+                ((symbol-function 'my/tasks--wizard-read-char)
+                 (lambda (_p _c) ?x)))
+        (my/tasks-process-inbox))
+      (should-not (file-exists-p file))
+      (should (= 1 (length (directory-files my/tasks-archive-directory
+                                            t "\\.md\\'")))))))
+
+(ert-deftest tasks-test--process-inbox-trash-with-confirm ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "a.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# Garbage\n"))
+      (cl-letf (((symbol-function 'my/tasks--wizard-read-title)
+                 (lambda (_p default) default))
+                ((symbol-function 'my/tasks--wizard-read-char)
+                 (lambda (_p _c) ?T))
+                ((symbol-function 'my/tasks--wizard-confirm)
+                 (lambda (_p) t)))
+        (my/tasks-process-inbox))
+      (should-not (file-exists-p file))
+      ;; Trash skips archive — directory should not contain the file.
+      (when (file-directory-p my/tasks-archive-directory)
+        (should-not (directory-files my/tasks-archive-directory nil "\\.md\\'"))))))
+
+(ert-deftest tasks-test--process-inbox-trash-cancelled ()
+  "Declining the trash confirmation leaves the file in place."
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "a.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# Garbage\n"))
+      (cl-letf (((symbol-function 'my/tasks--wizard-read-title)
+                 (lambda (_p default) default))
+                ((symbol-function 'my/tasks--wizard-read-char)
+                 (lambda (_p _c) ?T))
+                ((symbol-function 'my/tasks--wizard-confirm)
+                 (lambda (_p) nil)))
+        (my/tasks-process-inbox))
+      (should (file-exists-p file))
+      (should (equal (plist-get (my/tasks--parse-frontmatter file) :status)
+                     "inbox")))))
+
+(ert-deftest tasks-test--process-inbox-defer-sets-next-and-scheduled ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "a.md" temp-dir))
+          (char-calls 0))
+      (with-temp-file file (insert "---\nstatus: inbox\n---\n\n# A\n"))
+      (cl-letf (((symbol-function 'my/tasks--wizard-read-title)
+                 (lambda (_p default) default))
+                ((symbol-function 'my/tasks--wizard-read-char)
+                 (lambda (_p _c)
+                   (cl-incf char-calls)
+                   (if (= char-calls 1) ?+ ?7))))
+        (my/tasks-process-inbox))
+      (let* ((task (my/tasks--parse-frontmatter file))
+             (expected (format-time-string
+                        "%Y-%m-%d"
+                        (time-add (current-time) (days-to-time 7)))))
+        (should (equal (plist-get task :status) "next"))
+        (should (equal (plist-get task :scheduled) expected))))))
+
+(ert-deftest tasks-test--process-inbox-quit-stops-loop ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: inbox\n---\n\n# First\n"))
+    (with-temp-file (expand-file-name "b.md" temp-dir)
+      (insert "---\nstatus: inbox\n---\n\n# Second\n"))
+    (cl-letf (((symbol-function 'my/tasks--wizard-read-title)
+               (lambda (_p default) default))
+              ((symbol-function 'my/tasks--wizard-read-char)
+               (lambda (_p _c) ?q)))
+      (my/tasks-process-inbox))
+    ;; Both still in inbox — quit fired on item 1 before anything changed.
+    (should (equal (plist-get
+                    (my/tasks--parse-frontmatter
+                     (expand-file-name "a.md" temp-dir)) :status) "inbox"))
+    (should (equal (plist-get
+                    (my/tasks--parse-frontmatter
+                     (expand-file-name "b.md" temp-dir)) :status) "inbox"))))
+
+(ert-deftest tasks-test--process-inbox-walks-multiple-items ()
+  "Different choices per item: rename + next, then archive."
+  (tasks-test--with-temp-dirs
+    (let ((title-calls 0)
+          (char-calls 0)
+          (file-a (expand-file-name "a.md" temp-dir))
+          (file-b (expand-file-name "b.md" temp-dir)))
+      (with-temp-file file-a
+        (insert "---\nstatus: inbox\n---\n\n# Steuern\n"))
+      (with-temp-file file-b
+        (insert "---\nstatus: inbox\n---\n\n# Trinkflasche kaufen\n"))
+      (cl-letf (((symbol-function 'my/tasks--wizard-read-title)
+                 (lambda (_p default)
+                   (cl-incf title-calls)
+                   (pcase title-calls
+                     (1 "Steuerbüro anrufen")
+                     (_ default))))
+                ((symbol-function 'my/tasks--wizard-read-char)
+                 (lambda (_p _c)
+                   (cl-incf char-calls)
+                   (pcase char-calls
+                     (1 ?n)
+                     (_ ?x)))))
+        (my/tasks-process-inbox))
+      (let ((task-a (my/tasks--parse-frontmatter file-a)))
+        (should (equal (plist-get task-a :title) "Steuerbüro anrufen"))
+        (should (equal (plist-get task-a :status) "next")))
+      (should-not (file-exists-p file-b))
+      (should (= 1 (length (directory-files my/tasks-archive-directory
+                                            t "\\.md\\'")))))))
+
 (provide 'tasks-test)
 ;;; tasks-test.el ends here
