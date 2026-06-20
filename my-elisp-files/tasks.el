@@ -469,26 +469,17 @@ Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
   (define-key map (kbd "?") #'my/tasks-view-help)
   (define-key map (kbd "q") #'quit-window))
 
-(defconst my/tasks--view-hint-actions
-  "RET·open  t·today  x·done  d·due  s·sched  r·rem  p·status  k·ctx  m·mail"
-  "Top header-line row: per-task action shortcuts (act on the task at point).")
-
-(defconst my/tasks--view-hint-nav
-  "v·cycle  i·inbox  T·today  A·archive  I·wizard  /·search  f·filter  g·refresh  ?·help  q·quit"
-  "Bottom header-line row: navigation / view-switching shortcuts.")
-
-(defun my/tasks--header-line-row (text)
-  "Right-align TEXT inside the header line using a space-display prefix."
-  (concat
-   (propertize " " 'display
-               `(space :align-to (- right ,(+ 1 (length text)))))
-   text))
+(defconst my/tasks--view-hint
+  "RET·open  t·today  x·done  d·due  p·status  k·ctx  /·search  ?·help  q·quit"
+  "Compact key-hint shown right-aligned in the header line of tasks views.
+Press `?' in a view for the full keymap.")
 
 (defun my/tasks--header-line ()
-  "Return the two-row right-aligned key-hint string for the header line."
-  (concat (my/tasks--header-line-row my/tasks--view-hint-actions)
-          "\n"
-          (my/tasks--header-line-row my/tasks--view-hint-nav)))
+  "Return the right-aligned key-hint string for the header line."
+  (concat
+   (propertize " " 'display
+               `(space :align-to (- right ,(+ 1 (length my/tasks--view-hint)))))
+   my/tasks--view-hint))
 
 (defun my/tasks-view-help ()
   "Show full key bindings for `my/tasks-mode' in a help window."

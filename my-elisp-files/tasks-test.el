@@ -1151,32 +1151,18 @@ so search hits from the archive are recognisable."
 ;; Header-line key hints
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(ert-deftest tasks-test--header-line-contains-both-rows ()
-  "Header-line builder contains both action and nav hint rows."
+(ert-deftest tasks-test--header-line-contains-hint ()
+  "Header-line builder ends with the configured hint string."
   (let ((result (my/tasks--header-line)))
     (should (stringp result))
-    (should (string-match-p (regexp-quote my/tasks--view-hint-actions) result))
-    (should (string-match-p (regexp-quote my/tasks--view-hint-nav) result))))
-
-(ert-deftest tasks-test--header-line-is-two-rows ()
-  "The two hint rows are separated by a newline."
-  (let ((result (my/tasks--header-line)))
-    (should (string-match-p "\n" result))
-    ;; Exactly one newline between the two rows.
-    (should (= 1 (cl-count ?\n result)))))
+    (should (string-suffix-p my/tasks--view-hint result))))
 
 (ert-deftest tasks-test--header-line-uses-align-to-display-prop ()
-  "Both rows are padded with a `(space :align-to ...)' display property."
+  "The pad prefix carries a `(space :align-to ...)' display property."
   (let* ((result (my/tasks--header-line))
          (prop (get-text-property 0 'display result)))
     (should (eq (car prop) 'space))
-    (should (eq (cadr prop) :align-to))
-    ;; Second row also starts with a space-display property at its head.
-    (let* ((nl-pos (string-search "\n" result))
-           (prop2 (when nl-pos
-                    (get-text-property (1+ nl-pos) 'display result))))
-      (should (eq (car prop2) 'space))
-      (should (eq (cadr prop2) :align-to)))))
+    (should (eq (cadr prop) :align-to))))
 
 (ert-deftest tasks-test--view-has-header-line-format ()
   "After entering `my/tasks-mode', the buffer has a header-line-format."
