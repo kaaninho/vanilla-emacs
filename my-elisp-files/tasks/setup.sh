@@ -20,6 +20,10 @@ LAUNCH_AGENTS="$HOME/Library/LaunchAgents"
 NOTIFY_PLIST_NAME="com.kaan.tasks-notify.plist"
 WEB_PLIST_NAME="com.kaan.tasks-web.plist"
 
+# Subdirectories of $SCRIPT_DIR (tasks/).
+WEB_DIR="$SCRIPT_DIR/tasks-web"
+NOTIFY_DIR="$SCRIPT_DIR/notify"
+
 step()    { printf "\n▸ %s\n" "$*"; }
 ok()      { printf "  ✓ %s\n" "$*"; }
 warn()    { printf "  ⚠ %s\n" "$*"; }
@@ -35,7 +39,7 @@ ok "python3 → $(command -v python3) ($(python3 --version 2>&1))"
 if command -v tsc >/dev/null; then
     ok "tsc     → $(command -v tsc) ($(tsc --version))"
     step "Recompiling app.ts → app.js"
-    ( cd "$SCRIPT_DIR" && tsc )
+    ( cd "$WEB_DIR" && tsc )
     ok "app.js rebuilt"
 else
     warn "tsc not on PATH — keeping the committed app.js as-is"
@@ -43,7 +47,7 @@ fi
 
 # 2. Obsidian vault path ---------------------------------------------------
 # Pick up whatever server.py considers OBSIDIAN_DIR (env or default).
-TASKS_PATH=$(cd "$SCRIPT_DIR" && python3 -c "
+TASKS_PATH=$(cd "$WEB_DIR" && python3 -c "
 import sys; sys.path.insert(0, '.')
 from server import TASKS_DIR
 print(TASKS_DIR)
@@ -57,8 +61,10 @@ fi
 
 # 3. Tests -----------------------------------------------------------------
 step "Running Python test suite"
-( cd "$SCRIPT_DIR" && python3 -m unittest test_server test_notify ) \
-    || fail "tests failed — aborting setup so we don't load broken code"
+( cd "$WEB_DIR"    && python3 -m unittest test_server ) \
+    || fail "test_server failed"
+( cd "$NOTIFY_DIR" && python3 -m unittest test_notify ) \
+    || fail "test_notify failed"
 ok "all tests green"
 
 # 4. Stop existing agents (idempotent) -------------------------------------
@@ -87,9 +93,9 @@ unload_if_loaded "$WEB_PLIST_NAME"
 
 # 5. Install plists --------------------------------------------------------
 step "Installing plists into $LAUNCH_AGENTS"
-cp "$SCRIPT_DIR/$NOTIFY_PLIST_NAME" "$LAUNCH_AGENTS/"
+cp "$NOTIFY_DIR/$NOTIFY_PLIST_NAME" "$LAUNCH_AGENTS/"
 ok "$NOTIFY_PLIST_NAME"
-cp "$SCRIPT_DIR/$WEB_PLIST_NAME" "$LAUNCH_AGENTS/"
+cp "$WEB_DIR/$WEB_PLIST_NAME" "$LAUNCH_AGENTS/"
 ok "$WEB_PLIST_NAME"
 
 # 6. Load ------------------------------------------------------------------

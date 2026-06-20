@@ -5,10 +5,15 @@
 
 import importlib
 import os
+import sys
 import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+
+# `server' lives in the sibling tasks-web/ directory.
+sys.path.insert(
+    0, str(Path(__file__).resolve().parent.parent / "tasks-web"))
 
 
 def load_modules(root, state_file):

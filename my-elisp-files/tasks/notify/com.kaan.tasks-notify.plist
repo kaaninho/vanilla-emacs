@@ -9,7 +9,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>/opt/homebrew/bin/python3</string>
-        <string>/Users/kaan/emacsdotfiles/my-elisp-files/tasks-web/notify.py</string>
+        <string>/Users/kaan/emacsdotfiles/my-elisp-files/tasks/notify/notify.py</string>
     </array>
 
     <!-- Fire every 60 s. launchd catches up after sleep/wake. -->
