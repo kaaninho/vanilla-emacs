@@ -23,6 +23,7 @@ WEB_PLIST_NAME="com.kaan.tasks-web.plist"
 # Subdirectories of $SCRIPT_DIR (tasks/).
 WEB_DIR="$SCRIPT_DIR/tasks-web"
 NOTIFY_DIR="$SCRIPT_DIR/notify"
+LIB_DIR="$SCRIPT_DIR/lib"
 
 step()    { printf "\n▸ %s\n" "$*"; }
 ok()      { printf "  ✓ %s\n" "$*"; }
@@ -46,10 +47,10 @@ else
 fi
 
 # 2. Obsidian vault path ---------------------------------------------------
-# Pick up whatever server.py considers OBSIDIAN_DIR (env or default).
-TASKS_PATH=$(cd "$WEB_DIR" && python3 -c "
+# Pick up whatever tasks_lib considers OBSIDIAN_DIR (env or default).
+TASKS_PATH=$(cd "$LIB_DIR" && python3 -c "
 import sys; sys.path.insert(0, '.')
-from server import TASKS_DIR
+from tasks_lib import TASKS_DIR
 print(TASKS_DIR)
 ")
 if [ -d "$TASKS_PATH" ]; then
@@ -61,8 +62,8 @@ fi
 
 # 3. Tests -----------------------------------------------------------------
 step "Running Python test suite"
-( cd "$WEB_DIR"    && python3 -m unittest test_server ) \
-    || fail "test_server failed"
+( cd "$LIB_DIR"    && python3 -m unittest test_tasks_lib ) \
+    || fail "test_tasks_lib failed"
 ( cd "$NOTIFY_DIR" && python3 -m unittest test_notify ) \
     || fail "test_notify failed"
 ok "all tests green"

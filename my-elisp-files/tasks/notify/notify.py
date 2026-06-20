@@ -16,7 +16,7 @@ the day they fired, so an overdue task re-fires once each new day until it
 leaves the active dir (archived or deleted).
 
 Configuration via env:
-  OBSIDIAN_DIR                       inherited from server.py
+  OBSIDIAN_DIR                       inherited from tasks_lib
   TASKS_NOTIFY_STATE                 state file path
   TASKS_NOTIFY_MORNING_HOUR          int hour, default 9
   TASKS_NOTIFY_SOUND                 macOS notification sound, default "Glass"
@@ -29,8 +29,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tasks-web"))
-import server  # reuse parse_task / list_tasks / TASKS_DIR
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+import tasks_lib as lib  # noqa: E402
 
 
 STATE_FILE = Path(os.environ.get(
@@ -127,10 +127,10 @@ def check_tasks(now=None, notify=macos_notify):
         now = datetime.now()
     state = load_state()
     fired = []
-    tasks = server.list_tasks(server.TASKS_DIR)
+    tasks = lib.list_active_tasks()
     seen_files = set()
     for task in tasks:
-        file = str((server.TASKS_DIR / task["file"]).resolve())
+        file = str((lib.TASKS_DIR / task["file"]).resolve())
         seen_files.add(file)
         file_state = state.setdefault(file, {})
         title = task.get("title", task.get("file", "Task"))

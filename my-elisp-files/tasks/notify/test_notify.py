@@ -11,28 +11,28 @@ import unittest
 from datetime import datetime
 from pathlib import Path
 
-# `server' lives in the sibling tasks-web/ directory.
+# `tasks_lib' lives in the sibling lib/ directory.
 sys.path.insert(
-    0, str(Path(__file__).resolve().parent.parent / "tasks-web"))
+    0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 
 def load_modules(root, state_file):
-    """(Re)load server + notify so they pick up the temporary env vars."""
+    """(Re)load tasks_lib + notify so they pick up the temporary env vars."""
     os.environ["OBSIDIAN_DIR"] = str(root)
     os.environ["TASKS_NOTIFY_STATE"] = str(state_file)
     os.environ["TASKS_NOTIFY_MORNING_HOUR"] = "9"
-    import server
+    import tasks_lib
     import notify
-    importlib.reload(server)
+    importlib.reload(tasks_lib)
     importlib.reload(notify)
     tasks_dir = root / "tasks"
     archive_dir = tasks_dir / "archive"
     tasks_dir.mkdir(exist_ok=True)
     archive_dir.mkdir(exist_ok=True)
-    server.TASKS_DIR = tasks_dir
-    server.ARCHIVE_DIR = archive_dir
+    tasks_lib.TASKS_DIR = tasks_dir
+    tasks_lib.ARCHIVE_DIR = archive_dir
     notify.STATE_FILE = state_file
-    return server, notify, tasks_dir, archive_dir
+    return tasks_lib, notify, tasks_dir, archive_dir
 
 
 class ShouldFireTests(unittest.TestCase):
@@ -41,7 +41,7 @@ class ShouldFireTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         root = Path(self.tmp.name)
-        self.server, self.notify, _, _ = load_modules(
+        self.lib, self.notify, _, _ = load_modules(
             root, root / "state.json")
 
     def tearDown(self):
@@ -145,7 +145,7 @@ class CheckTasksTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
         self.state_file = self.root / "state.json"
-        self.server, self.notify, self.tasks_dir, self.archive_dir = \
+        self.lib, self.notify, self.tasks_dir, self.archive_dir = \
             load_modules(self.root, self.state_file)
         self.calls = []
         self.fake_notify = lambda title, body: self.calls.append((title, body))

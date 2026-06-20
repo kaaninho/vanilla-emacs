@@ -1,6 +1,6 @@
-"""Unit tests for server.py. Run via:
+"""Unit tests for tasks_lib.py. Run via:
 
-    python3 -m unittest test_server.py
+    python3 -m unittest test_tasks_lib.py
 """
 
 import importlib
@@ -10,18 +10,18 @@ import unittest
 from pathlib import Path
 
 
-def load_server(tasks_dir, archive_dir):
+def load_tasks_lib(tasks_dir, archive_dir):
     os.environ["OBSIDIAN_DIR"] = str(tasks_dir.parent)
     # Re-import the module so it picks up the env var.
-    import server
-    importlib.reload(server)
+    import tasks_lib
+    importlib.reload(tasks_lib)
     # Override directly in case OBSIDIAN_DIR layout differs.
-    server.TASKS_DIR = tasks_dir
-    server.ARCHIVE_DIR = archive_dir
-    return server
+    tasks_lib.TASKS_DIR = tasks_dir
+    tasks_lib.ARCHIVE_DIR = archive_dir
+    return tasks_lib
 
 
-class ServerTests(unittest.TestCase):
+class TasksLibTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         root = Path(self.tmp.name)
@@ -29,7 +29,7 @@ class ServerTests(unittest.TestCase):
         self.archive_dir = self.tasks_dir / "archive"
         self.tasks_dir.mkdir()
         self.archive_dir.mkdir()
-        self.server = load_server(self.tasks_dir, self.archive_dir)
+        self.lib = load_tasks_lib(self.tasks_dir, self.archive_dir)
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -39,7 +39,7 @@ class ServerTests(unittest.TestCase):
     def test_parse_task_basic(self):
         p = self.tasks_dir / "t.md"
         p.write_text("---\nstatus: inbox\ndue: 2026-06-08\n---\n\n# Hello\n")
-        t = self.server.parse_task(p)
+        t = self.lib.parse_task(p)
         self.assertEqual(t["status"], "inbox")
         self.assertEqual(t["due"], "2026-06-08")
         self.assertEqual(t["title"], "Hello")
@@ -49,18 +49,18 @@ class ServerTests(unittest.TestCase):
     def test_parse_task_quoted_value(self):
         p = self.tasks_dir / "t.md"
         p.write_text('---\nstatus: inbox\nproject: "[[Projekt X]]"\n---\n\n# T\n')
-        t = self.server.parse_task(p)
+        t = self.lib.parse_task(p)
         self.assertEqual(t["project"], "[[Projekt X]]")
 
     def test_parse_task_no_frontmatter(self):
         p = self.tasks_dir / "t.md"
         p.write_text("just notes\n")
-        self.assertIsNone(self.server.parse_task(p))
+        self.assertIsNone(self.lib.parse_task(p))
 
     def test_parse_task_archived_flag(self):
         p = self.archive_dir / "2026-05-26-old.md"
         p.write_text("---\nstatus: done\n---\n\n# Old\n")
-        t = self.server.parse_task(p)
+        t = self.lib.parse_task(p)
         self.assertTrue(t["archived"])
 
     # --- list_tasks ---
@@ -71,13 +71,13 @@ class ServerTests(unittest.TestCase):
         (self.tasks_dir / "b.md").write_text("notes")
         (self.tasks_dir / "c.md").write_text(
             "---\ntitle: c\n---\n# C\n")  # no status
-        tasks = self.server.list_tasks(self.tasks_dir)
+        tasks = self.lib.list_tasks(self.tasks_dir)
         self.assertEqual([t["file"] for t in tasks], ["a.md"])
 
     # --- slugify ---
 
     def test_slugify(self):
-        f = self.server.slugify
+        f = self.lib.slugify
         self.assertEqual(f("Hello World"), "hello-world")
         self.assertEqual(f("Wäsche waschen"), "waesche-waschen")
         self.assertEqual(f("Größe ändern"), "groesse-aendern")
@@ -87,7 +87,7 @@ class ServerTests(unittest.TestCase):
     # --- yaml_quote ---
 
     def test_yaml_quote(self):
-        f = self.server.yaml_quote
+        f = self.lib.yaml_quote
         self.assertEqual(f("plain"), "plain")
         self.assertEqual(f("[[link]]"), '"[[link]]"')
         self.assertEqual(f('with "quote"'), 'with "quote"')  # no leading reserved
@@ -98,14 +98,14 @@ class ServerTests(unittest.TestCase):
     def test_update_property_replace(self):
         p = self.tasks_dir / "t.md"
         p.write_text("---\nstatus: inbox\n---\n\n# T\n")
-        self.server.update_property(p, "status", "today")
+        self.lib.update_property(p, "status", "today")
         self.assertIn("status: today", p.read_text())
         self.assertNotIn("status: inbox", p.read_text())
 
     def test_update_property_add(self):
         p = self.tasks_dir / "t.md"
         p.write_text("---\nstatus: inbox\n---\n\n# T\n")
-        self.server.update_property(p, "due", "2026-06-08")
+        self.lib.update_property(p, "due", "2026-06-08")
         text = p.read_text()
         self.assertIn("status: inbox", text)
         self.assertIn("due: 2026-06-08", text)
@@ -113,7 +113,7 @@ class ServerTests(unittest.TestCase):
     def test_update_property_remove(self):
         p = self.tasks_dir / "t.md"
         p.write_text("---\nstatus: inbox\ndue: 2026-06-08\n---\n\n# T\n")
-        self.server.update_property(p, "due", None)
+        self.lib.update_property(p, "due", None)
         text = p.read_text()
         self.assertNotIn("due:", text)
         self.assertIn("status: inbox", text)
@@ -121,7 +121,7 @@ class ServerTests(unittest.TestCase):
     # --- capture ---
 
     def test_capture_creates_file(self):
-        name = self.server.capture("Test Task")
+        name = self.lib.capture("Test Task")
         self.assertEqual(name, "test-task.md")
         path = self.tasks_dir / name
         self.assertTrue(path.exists())
@@ -130,8 +130,8 @@ class ServerTests(unittest.TestCase):
         self.assertIn("# Test Task", text)
 
     def test_capture_collision(self):
-        self.server.capture("Same")
-        n2 = self.server.capture("Same")
+        self.lib.capture("Same")
+        n2 = self.lib.capture("Same")
         self.assertEqual(n2, "same-2.md")
 
     # --- archive / unarchive ---
@@ -139,7 +139,7 @@ class ServerTests(unittest.TestCase):
     def test_archive_file_moves_with_date_prefix(self):
         (self.tasks_dir / "a.md").write_text(
             "---\nstatus: inbox\n---\n\n# A\n")
-        self.server.archive_file("a.md")
+        self.lib.archive_file("a.md")
         self.assertFalse((self.tasks_dir / "a.md").exists())
         archived = list(self.archive_dir.glob("*-a.md"))
         self.assertEqual(len(archived), 1)
@@ -150,7 +150,7 @@ class ServerTests(unittest.TestCase):
     def test_unarchive_strips_date_prefix(self):
         (self.archive_dir / "2026-05-26-old.md").write_text(
             "---\nstatus: done\narchived-at: 2026-05-26\n---\n\n# Old\n")
-        self.server.unarchive_file("2026-05-26-old.md", "next")
+        self.lib.unarchive_file("2026-05-26-old.md", "next")
         restored = self.tasks_dir / "old.md"
         self.assertTrue(restored.exists())
         text = restored.read_text()
@@ -161,30 +161,30 @@ class ServerTests(unittest.TestCase):
         (self.archive_dir / "2026-05-26-old.md").write_text(
             "---\nstatus: done\n---\n\n# Old\n")
         with self.assertRaises(ValueError):
-            self.server.unarchive_file("2026-05-26-old.md", "garbage")
+            self.lib.unarchive_file("2026-05-26-old.md", "garbage")
         with self.assertRaises(ValueError):
-            self.server.unarchive_file("2026-05-26-old.md", "done")
+            self.lib.unarchive_file("2026-05-26-old.md", "done")
 
     # --- set_status ---
 
     def test_set_status_in_place(self):
         (self.tasks_dir / "a.md").write_text(
             "---\nstatus: inbox\n---\n\n# A\n")
-        self.server.set_status("a.md", "next")
+        self.lib.set_status("a.md", "next")
         text = (self.tasks_dir / "a.md").read_text()
         self.assertIn("status: next", text)
 
     def test_set_status_done_archives(self):
         (self.tasks_dir / "a.md").write_text(
             "---\nstatus: inbox\n---\n\n# A\n")
-        self.server.set_status("a.md", "done")
+        self.lib.set_status("a.md", "done")
         self.assertFalse((self.tasks_dir / "a.md").exists())
         self.assertEqual(len(list(self.archive_dir.glob("*-a.md"))), 1)
 
     def test_set_status_from_archive_unarchives(self):
         (self.archive_dir / "2026-05-26-old.md").write_text(
             "---\nstatus: done\narchived-at: 2026-05-26\n---\n\n# Old\n")
-        self.server.set_status("2026-05-26-old.md", "inbox")
+        self.lib.set_status("2026-05-26-old.md", "inbox")
         self.assertTrue((self.tasks_dir / "old.md").exists())
         self.assertFalse((self.archive_dir / "2026-05-26-old.md").exists())
 
@@ -193,14 +193,14 @@ class ServerTests(unittest.TestCase):
     def test_find_task_rejects_traversal(self):
         outside = self.tmp.name + "/escape.md"
         Path(outside).write_text("nope")
-        self.assertIsNone(self.server.find_task("../escape.md"))
+        self.assertIsNone(self.lib.find_task("../escape.md"))
 
     # --- update_title ---
 
     def test_update_title_replaces_h1(self):
         p = self.tasks_dir / "a.md"
         p.write_text("---\nstatus: inbox\n---\n\n# Old title\n\nbody\n")
-        self.server.update_title(p, "New title")
+        self.lib.update_title(p, "New title")
         text = p.read_text()
         self.assertIn("# New title", text)
         self.assertNotIn("# Old title", text)
@@ -210,14 +210,14 @@ class ServerTests(unittest.TestCase):
         p = self.tasks_dir / "a.md"
         p.write_text("---\nstatus: inbox\n---\n\n# T\n")
         with self.assertRaises(ValueError):
-            self.server.update_title(p, "")
+            self.lib.update_title(p, "")
         with self.assertRaises(ValueError):
-            self.server.update_title(p, "   ")
+            self.lib.update_title(p, "   ")
 
     def test_update_title_inserts_h1_if_missing(self):
         p = self.tasks_dir / "a.md"
         p.write_text("---\nstatus: inbox\n---\n\nbody only\n")
-        self.server.update_title(p, "Inserted")
+        self.lib.update_title(p, "Inserted")
         self.assertIn("# Inserted", p.read_text())
 
     # --- edit_task ---
@@ -225,7 +225,7 @@ class ServerTests(unittest.TestCase):
     def test_edit_task_multiple_fields(self):
         p = self.tasks_dir / "a.md"
         p.write_text("---\nstatus: inbox\n---\n\n# Old\n")
-        self.server.edit_task("a.md", {
+        self.lib.edit_task("a.md", {
             "title": "Renamed",
             "due": "2026-12-31",
             "scheduled": "2026-12-30",
@@ -240,7 +240,7 @@ class ServerTests(unittest.TestCase):
     def test_edit_task_clear_field(self):
         p = self.tasks_dir / "a.md"
         p.write_text("---\nstatus: inbox\ndue: 2026-06-08\n---\n\n# A\n")
-        self.server.edit_task("a.md", {"due": ""})
+        self.lib.edit_task("a.md", {"due": ""})
         self.assertNotIn("due:", p.read_text())
 
     def test_edit_task_status_change_applied_last(self):
@@ -248,7 +248,7 @@ class ServerTests(unittest.TestCase):
         on the active file are preserved after the move."""
         p = self.tasks_dir / "a.md"
         p.write_text("---\nstatus: inbox\n---\n\n# A\n")
-        self.server.edit_task("a.md", {"due": "2026-06-08", "status": "done"})
+        self.lib.edit_task("a.md", {"due": "2026-06-08", "status": "done"})
         self.assertFalse((self.tasks_dir / "a.md").exists())
         archived = list(self.archive_dir.glob("*-a.md"))
         self.assertEqual(len(archived), 1)
@@ -260,7 +260,7 @@ class ServerTests(unittest.TestCase):
         p = self.tasks_dir / "a.md"
         p.write_text(
             "---\nstatus: inbox\ndue: 2026-06-08\n---\n\n# Keep me\n")
-        self.server.edit_task("a.md", {"project": "[[X]]"})
+        self.lib.edit_task("a.md", {"project": "[[X]]"})
         text = p.read_text()
         self.assertIn("# Keep me", text)
         self.assertIn("due: 2026-06-08", text)
@@ -268,14 +268,14 @@ class ServerTests(unittest.TestCase):
 
     def test_edit_task_not_found(self):
         with self.assertRaises(FileNotFoundError):
-            self.server.edit_task("nope.md", {"title": "x"})
+            self.lib.edit_task("nope.md", {"title": "x"})
 
     # --- YAML list parsing ---
 
     def test_parse_inline_flow_list(self):
         p = self.tasks_dir / "t.md"
         p.write_text("---\nstatus: inbox\ntags: [work, urgent]\n---\n\n# T\n")
-        t = self.server.parse_task(p)
+        t = self.lib.parse_task(p)
         self.assertEqual(t["status"], "inbox")
         self.assertEqual(t["tags"], ["work", "urgent"])
 
@@ -283,7 +283,7 @@ class ServerTests(unittest.TestCase):
         p = self.tasks_dir / "t.md"
         p.write_text(
             "---\nstatus: inbox\ntags:\n  - work\n  - urgent\n---\n\n# T\n")
-        t = self.server.parse_task(p)
+        t = self.lib.parse_task(p)
         self.assertEqual(t["status"], "inbox")
         self.assertEqual(t["tags"], ["work", "urgent"])
 
@@ -292,13 +292,13 @@ class ServerTests(unittest.TestCase):
         p.write_text(
             "---\nstatus: inbox\ncontexts:\n"
             '  - "@work"\n  - "@phone"\n---\n\n# T\n')
-        t = self.server.parse_task(p)
+        t = self.lib.parse_task(p)
         self.assertEqual(t["contexts"], ["@work", "@phone"])
 
     def test_parse_empty_flow_list(self):
         p = self.tasks_dir / "t.md"
         p.write_text("---\nstatus: inbox\ntags: []\n---\n\n# T\n")
-        t = self.server.parse_task(p)
+        t = self.lib.parse_task(p)
         self.assertEqual(t["tags"], [])
 
     def test_parse_list_followed_by_scalar(self):
@@ -306,7 +306,7 @@ class ServerTests(unittest.TestCase):
         p.write_text(
             "---\nstatus: inbox\ntags:\n  - a\n  - b\n"
             "due: 2026-06-08\n---\n\n# T\n")
-        t = self.server.parse_task(p)
+        t = self.lib.parse_task(p)
         self.assertEqual(t["tags"], ["a", "b"])
         self.assertEqual(t["due"], "2026-06-08")
 
@@ -314,7 +314,7 @@ class ServerTests(unittest.TestCase):
         """Obsidian's List property type → single-item block list."""
         p = self.tasks_dir / "t.md"
         p.write_text("---\nstatus:\n  - next\n---\n\n# T\n")
-        t = self.server.parse_task(p)
+        t = self.lib.parse_task(p)
         self.assertEqual(t["status"], "next")
         self.assertIsInstance(t["status"], str)
 
@@ -322,7 +322,7 @@ class ServerTests(unittest.TestCase):
         p = self.tasks_dir / "t.md"
         p.write_text(
             "---\nstatus: inbox\ndue: [2026-06-08]\n---\n\n# T\n")
-        t = self.server.parse_task(p)
+        t = self.lib.parse_task(p)
         self.assertEqual(t["due"], "2026-06-08")
         self.assertIsInstance(t["due"], str)
 
@@ -330,7 +330,7 @@ class ServerTests(unittest.TestCase):
         p = self.tasks_dir / "t.md"
         p.write_text(
             "---\nstatus: inbox\ntags:\n  - work\n  - urgent\n---\n\n# T\n")
-        t = self.server.parse_task(p)
+        t = self.lib.parse_task(p)
         self.assertEqual(t["status"], "inbox")
         self.assertEqual(t["tags"], ["work", "urgent"])
 
@@ -339,7 +339,7 @@ class ServerTests(unittest.TestCase):
         p.write_text(
             "---\nstatus: inbox\ntags:\n  - a\n  - b\n"
             "due: 2026-06-08\n---\n\n# T\n")
-        self.server.update_property(p, "tags", None)
+        self.lib.update_property(p, "tags", None)
         text = p.read_text()
         self.assertNotIn("tags:", text)
         self.assertNotIn("- a", text)
@@ -351,7 +351,7 @@ class ServerTests(unittest.TestCase):
         p = self.tasks_dir / "a.md"
         p.write_text(
             "---\nstatus: inbox\ntags:\n  - a\n  - b\n---\n\n# T\n")
-        self.server.update_property(p, "tags", "single")
+        self.lib.update_property(p, "tags", "single")
         text = p.read_text()
         self.assertIn("tags: single", text)
         self.assertNotIn("- a", text)
@@ -362,11 +362,11 @@ class ServerTests(unittest.TestCase):
     def test_update_list_property_writes_block(self):
         p = self.tasks_dir / "a.md"
         p.write_text("---\nstatus: inbox\n---\n\n# T\n")
-        self.server.update_list_property(p, "contexts", ["@work", "@computer"])
+        self.lib.update_list_property(p, "contexts", ["@work", "@computer"])
         text = p.read_text()
         self.assertIn('contexts:\n  - "@work"\n  - "@computer"', text)
         self.assertEqual(
-            self.server.parse_task(p)["contexts"], ["@work", "@computer"])
+            self.lib.parse_task(p)["contexts"], ["@work", "@computer"])
 
     def test_update_list_property_removes(self):
         p = self.tasks_dir / "a.md"
@@ -374,7 +374,7 @@ class ServerTests(unittest.TestCase):
             "---\nstatus: inbox\ncontexts:\n"
             '  - "@work"\n  - "@home"\n'
             "due: 2026-06-08\n---\n\n# T\n")
-        self.server.update_list_property(p, "contexts", [])
+        self.lib.update_list_property(p, "contexts", [])
         text = p.read_text()
         self.assertNotIn("contexts:", text)
         self.assertNotIn("@work", text)
@@ -384,31 +384,31 @@ class ServerTests(unittest.TestCase):
     def test_update_list_property_replaces_scalar(self):
         p = self.tasks_dir / "a.md"
         p.write_text("---\nstatus: inbox\ncontexts: stale\n---\n\n# T\n")
-        self.server.update_list_property(p, "contexts", ["@a"])
-        self.assertEqual(self.server.parse_task(p)["contexts"], ["@a"])
+        self.lib.update_list_property(p, "contexts", ["@a"])
+        self.assertEqual(self.lib.parse_task(p)["contexts"], ["@a"])
 
     def test_edit_task_sets_contexts(self):
         p = self.tasks_dir / "a.md"
         p.write_text("---\nstatus: inbox\n---\n\n# T\n")
-        self.server.edit_task("a.md", {"contexts": ["@work", "@phone"]})
+        self.lib.edit_task("a.md", {"contexts": ["@work", "@phone"]})
         self.assertEqual(
-            self.server.parse_task(p)["contexts"], ["@work", "@phone"])
+            self.lib.parse_task(p)["contexts"], ["@work", "@phone"])
 
     def test_edit_task_clears_contexts(self):
         p = self.tasks_dir / "a.md"
         p.write_text(
             "---\nstatus: inbox\ncontexts:\n  - \"@work\"\n---\n\n# T\n")
-        self.server.edit_task("a.md", {"contexts": []})
+        self.lib.edit_task("a.md", {"contexts": []})
         self.assertNotIn("contexts:", p.read_text())
 
     def test_edit_task_contexts_rejects_non_list(self):
         p = self.tasks_dir / "a.md"
         p.write_text("---\nstatus: inbox\n---\n\n# T\n")
         with self.assertRaises(ValueError):
-            self.server.edit_task("a.md", {"contexts": "@work"})
+            self.lib.edit_task("a.md", {"contexts": "@work"})
 
     def test_unquote_yaml(self):
-        f = self.server.unquote_yaml
+        f = self.lib.unquote_yaml
         self.assertEqual(f("plain"), "plain")
         self.assertEqual(f('"quoted"'), "quoted")
         self.assertEqual(f("'single'"), "single")
