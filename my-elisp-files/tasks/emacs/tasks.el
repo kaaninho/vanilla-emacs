@@ -538,12 +538,31 @@ Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
   "Compact key-hint shown right-aligned in the header line of tasks views.
 Press `?' in a view for the full keymap.")
 
+(defun my/tasks--archived-today-count ()
+  "Count archive files whose filename begins with today's date prefix.
+Archive filenames have the form `YYYY-MM-DD-<slug>.md', so this is
+exactly the number of tasks the user has archived today."
+  (if (file-directory-p my/tasks-archive-directory)
+      (length (directory-files
+               my/tasks-archive-directory nil
+               (concat "^" (regexp-quote (my/tasks--today-string))
+                       "-.*\\.md\\'")))
+    0))
+
 (defun my/tasks--header-line ()
-  "Return the right-aligned key-hint string for the header line."
-  (concat
-   (propertize " " 'display
-               `(space :align-to (- right ,(+ 1 (length my/tasks--view-hint)))))
-   my/tasks--view-hint))
+  "Return the header line: optional `✓ N done today' on the left,
+key-hints right-aligned."
+  (let* ((count (my/tasks--archived-today-count))
+         (stats (if (> count 0)
+                    (propertize (format "  ✓ %d done today" count)
+                                'face 'success)
+                  "")))
+    (concat
+     stats
+     (propertize " " 'display
+                 `(space :align-to (- right
+                                      ,(+ 1 (length my/tasks--view-hint)))))
+     my/tasks--view-hint)))
 
 (defun my/tasks-view-help ()
   "Show full key bindings for `my/tasks-mode' in a help window."

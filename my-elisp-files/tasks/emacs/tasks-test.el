@@ -1451,5 +1451,55 @@ so search hits from the archive are recognisable."
                      (insert-file-contents archived) (buffer-string))))
         (should (string-match-p ": next → done\\b" text))))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Header-line done-today stats
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--archived-today-count-zero-when-empty ()
+  (tasks-test--with-temp-dirs
+    (should (= 0 (my/tasks--archived-today-count)))))
+
+(ert-deftest tasks-test--archived-today-count-counts-today-prefix-only ()
+  "Files dated today count; files dated other days do not."
+  (tasks-test--with-temp-dirs
+    (make-directory my/tasks-archive-directory t)
+    (let ((today (format-time-string "%Y-%m-%d")))
+      (dotimes (i 3)
+        (with-temp-file (expand-file-name
+                         (format "%s-task-%d.md" today i)
+                         my/tasks-archive-directory)
+          (insert "---\nstatus: done\n---\n\n# x\n")))
+      (with-temp-file (expand-file-name
+                       "2026-01-01-old.md" my/tasks-archive-directory)
+        (insert "---\nstatus: done\n---\n\n# old\n"))
+      (should (= 3 (my/tasks--archived-today-count))))))
+
+(ert-deftest tasks-test--archive-action-bumps-today-count ()
+  "After archiving via the wizard action, the today-count goes up by one."
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: next\n---\n\n# T\n"))
+      (should (= 0 (my/tasks--archived-today-count)))
+      (my/tasks--apply-wizard-action file 'done)
+      (should (= 1 (my/tasks--archived-today-count))))))
+
+(ert-deftest tasks-test--header-line-prefixes-stats-when-present ()
+  (tasks-test--with-temp-dirs
+    (make-directory my/tasks-archive-directory t)
+    (let ((today (format-time-string "%Y-%m-%d")))
+      (with-temp-file (expand-file-name
+                       (format "%s-t.md" today)
+                       my/tasks-archive-directory)
+        (insert "---\nstatus: done\n---\n\n# x\n"))
+      (let ((line (my/tasks--header-line)))
+        (should (string-match-p "✓ 1 done today" line))
+        (should (string-suffix-p my/tasks--view-hint line))))))
+
+(ert-deftest tasks-test--header-line-omits-stats-when-zero ()
+  (tasks-test--with-temp-dirs
+    (let ((line (my/tasks--header-line)))
+      (should-not (string-match-p "done today" line))
+      (should (string-suffix-p my/tasks--view-hint line)))))
+
 (provide 'tasks-test)
 ;;; tasks-test.el ends here
