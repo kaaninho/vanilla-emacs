@@ -21,7 +21,8 @@ The macro exposes `temp-dir' as the active-tasks directory."
                        (expand-file-name bfn)))
              (with-current-buffer buf (set-buffer-modified-p nil))
              (kill-buffer buf))))
-       (dolist (name '("*Inbox*" "*Today*" "*Next*" "*Waiting*" "*Someday*" "*Archive*"))
+       (dolist (name '("*Inbox*" "*Today*" "*Next*" "*Waiting*" "*Someday*"
+                       "*Archive*" "*Week*"))
          (when (get-buffer name) (kill-buffer name)))
        (dolist (buf (buffer-list))
          (let ((bn (buffer-name buf)))
@@ -1313,6 +1314,78 @@ so search hits from the archive are recognisable."
     (should (eq my/tasks-show-alarm-banner nil))
     (my/tasks-toggle-alarm-banner)
     (should (eq my/tasks-show-alarm-banner t))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Week view
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--week-dates-has-seven-days ()
+  (let ((week (my/tasks--week-dates)))
+    (should (= 7 (length week)))
+    (should (equal (mapcar #'cdr week) '("Mo" "Di" "Mi" "Do" "Fr" "Sa" "So")))))
+
+(ert-deftest tasks-test--week-dates-monday-first ()
+  "First day of the week list must be a Monday."
+  (let* ((week (my/tasks--week-dates))
+         (first-date (caar week))
+         ;; Use date-to-time to make sure %u returns Monday=1.
+         (dow (string-to-number
+               (format-time-string "%u" (date-to-time
+                                         (concat first-date " 00:00"))))))
+    (should (= dow 1))))
+
+(ert-deftest tasks-test--task-on-day-p ()
+  (let ((task '(:due "2026-06-23" :scheduled "2026-06-25")))
+    (should (my/tasks--task-on-day-p task "2026-06-23"))
+    (should (my/tasks--task-on-day-p task "2026-06-25"))
+    (should-not (my/tasks--task-on-day-p task "2026-06-24"))
+    (should-not (my/tasks--task-on-day-p '() "2026-06-23"))))
+
+(ert-deftest tasks-test--task-on-day-p-handles-datetime ()
+  "Reminders with times still match the date part."
+  (should (my/tasks--task-on-day-p
+           '(:reminder "2026-06-23 09:00") "2026-06-23")))
+
+(ert-deftest tasks-test--show-week-renders-tasks-on-their-day ()
+  (tasks-test--with-temp-dirs
+    (let* ((week (my/tasks--week-dates))
+           (monday (caar week))
+           (friday (car (nth 4 week))))
+      (with-temp-file (expand-file-name "a.md" temp-dir)
+        (insert (format "---\nstatus: next\ndue: %s\n---\n\n# Monday Task\n"
+                        monday)))
+      (with-temp-file (expand-file-name "b.md" temp-dir)
+        (insert (format "---\nstatus: next\nscheduled: %s\n---\n\n# Friday Task\n"
+                        friday)))
+      (with-temp-file (expand-file-name "c.md" temp-dir)
+        (insert "---\nstatus: next\n---\n\n# No-Date Task\n"))
+      (my/tasks-show-week)
+      (with-current-buffer "*Week*"
+        (let ((text (buffer-string)))
+          (should (string-match-p "Diese Woche" text))
+          (should (string-match-p "▸ Monday Task" text))
+          (should (string-match-p "▸ Friday Task" text))
+          ;; Tasks without any date in this week are NOT shown.
+          (should-not (string-match-p "▸ No-Date Task" text))
+          ;; The Monday header precedes the Monday task,
+          ;; the Friday header precedes the Friday task,
+          ;; and Monday block precedes Friday block.
+          (let ((mon-pos (string-match (concat "^Mo · " monday) text))
+                (fri-pos (string-match (concat "^Fr · " friday) text))
+                (mon-task-pos (string-match "▸ Monday Task" text))
+                (fri-task-pos (string-match "▸ Friday Task" text)))
+            (should mon-pos)
+            (should fri-pos)
+            (should (< mon-pos mon-task-pos))
+            (should (< fri-pos fri-task-pos))
+            (should (< mon-pos fri-pos))))))))
+
+(ert-deftest tasks-test--show-week-marks-empty-day ()
+  (tasks-test--with-temp-dirs
+    (my/tasks-show-week)
+    (with-current-buffer "*Week*"
+      ;; Without any tasks scheduled today, the day section shows the em-dash.
+      (should (string-match-p "—" (buffer-string))))))
 
 (provide 'tasks-test)
 ;;; tasks-test.el ends here

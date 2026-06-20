@@ -505,6 +505,7 @@ Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
   (define-key map (kbd "T") #'my/tasks-show-today)
   (define-key map (kbd "A") #'my/tasks-show-archive)
   (define-key map (kbd "I") #'my/tasks-process-inbox)
+  (define-key map (kbd "W") #'my/tasks-show-week)
   (define-key map (kbd "?") #'my/tasks-view-help)
   (define-key map (kbd "q") #'quit-window))
 
@@ -545,6 +546,7 @@ Press `?' in a view for the full keymap.")
     (princ "  i     show inbox\n")
     (princ "  T     show today\n")
     (princ "  A     show archive\n")
+    (princ "  W     show this week (Mon-Sun, grouped by date)\n")
     (princ "  I     start inbox-processing wizard\n")
     (princ "  q     quit (bury buffer)\n")
     (princ "  ?     this help")))
@@ -566,6 +568,10 @@ Press `?' in a view for the full keymap.")
 (defface my/tasks-rule-face
   '((t :inherit shadow))
   "Face for the rule under the header.")
+
+(defface my/tasks-day-header-face
+  '((t :inherit outline-2 :weight bold))
+  "Face for per-day section headings in the week view.")
 
 (defface my/tasks-title-face
   '((t :weight semi-bold))
@@ -849,6 +855,75 @@ and renders pending annotations plus per-task context chips."
   (my/tasks--render-buffer (format "*Search: %s*" query)
                            #'my/tasks-search-results query))
 
+(defun my/tasks--week-dates ()
+  "Return a list of (DATE-STRING . DAY-NAME) for Mon–Sun of this week."
+  (let* ((now (current-time))
+         (dow (string-to-number (format-time-string "%u" now)))
+         (monday (time-subtract now (days-to-time (1- dow))))
+         (days '("Mo" "Di" "Mi" "Do" "Fr" "Sa" "So")))
+    (cl-loop for i from 0 to 6
+             for d = (time-add monday (days-to-time i))
+             collect (cons (format-time-string "%Y-%m-%d" d)
+                           (nth i days)))))
+
+(defun my/tasks--task-on-day-p (task date)
+  "Return non-nil if TASK has a `due'/`scheduled'/`reminder' on DATE."
+  (cl-some (lambda (key)
+             (let ((val (plist-get task key)))
+               (and val (string-prefix-p date val))))
+           '(:due :scheduled :reminder)))
+
+(defun my/tasks-show-week ()
+  "Show this week's tasks (Mon–Sun) grouped by their date triggers."
+  (interactive)
+  ;; Commit any pending status changes from an existing *Week* buffer first.
+  (let* ((existing (get-buffer "*Week*"))
+         (pending (when existing
+                    (buffer-local-value 'my/tasks-pending-changes existing))))
+    (my/tasks--commit-pending-changes pending))
+  (let* ((week-dates (my/tasks--week-dates))
+         (today (my/tasks--today-string))
+         (all-tasks (my/read-tasks))
+         (buf (get-buffer-create "*Week*")))
+    (with-current-buffer buf
+      (my/tasks-mode)
+      (setq my/tasks-pending-changes nil)
+      (setq buffer-read-only nil)
+      (erase-buffer)
+      (setq my/tasks-view-query 'my/tasks-show-week)
+      (setq my/tasks-view-query-arg nil)
+      (let ((first-date (caar week-dates))
+            (last-date  (car (car (last week-dates)))))
+        (insert (propertize "Diese Woche" 'face 'my/tasks-header-face))
+        (insert (propertize (format "  %s – %s" first-date last-date)
+                            'face 'my/tasks-rule-face))
+        (insert "\n")
+        (insert (propertize (make-string 24 ?─) 'face 'my/tasks-rule-face))
+        (insert "\n\n"))
+      (dolist (entry week-dates)
+        (let* ((date (car entry))
+               (day-name (cdr entry))
+               (day-tasks (seq-filter
+                           (lambda (tt) (my/tasks--task-on-day-p tt date))
+                           all-tasks))
+               (header (format "%s · %s (%d)" day-name date (length day-tasks)))
+               (face (cond
+                      ((string< date today) 'shadow)
+                      ((string= date today) 'my/tasks-due-today-face)
+                      (t 'my/tasks-day-header-face))))
+          (insert (propertize header 'face face))
+          (insert "\n")
+          (if day-tasks
+              (dolist (task day-tasks)
+                (my/tasks--render-task-line task))
+            (insert (propertize "  —" 'face 'shadow))
+            (insert "\n"))
+          (insert "\n")))
+      (goto-char (or (next-single-property-change (point-min) 'my/task-file)
+                     (point-min)))
+      (setq buffer-read-only t))
+    (switch-to-buffer buf)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; View Actions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -856,12 +931,15 @@ and renders pending annotations plus per-task context chips."
 (defun my/tasks-view-refresh ()
   "Refresh the current tasks view (commits pending changes first)."
   (interactive)
-  (when my/tasks-view-query
-    (let ((pt (point)))
+  (let ((pt (point)))
+    (cond
+     ((string= (buffer-name) "*Week*")
+      (my/tasks-show-week))
+     (my/tasks-view-query
       (my/tasks--render-buffer (buffer-name)
                                my/tasks-view-query
-                               my/tasks-view-query-arg)
-      (goto-char (min pt (point-max))))))
+                               my/tasks-view-query-arg)))
+    (goto-char (min pt (point-max)))))
 
 (defun my/tasks--file-at-point ()
   "Return the task file referenced by the line at point."
@@ -1332,6 +1410,7 @@ Supports both new (`mu4e-view-message-with-message-id') and old
 (global-set-key (kbd "C-c t /") #'my/tasks-search)
 (global-set-key (kbd "C-c t I") #'my/tasks-process-inbox)
 (global-set-key (kbd "C-c t a") #'my/tasks-toggle-alarm-banner)
+(global-set-key (kbd "C-c t W") #'my/tasks-show-week)
 
 (provide 'tasks)
 ;;; tasks.el ends here
