@@ -187,13 +187,29 @@ def find_task(filename):
 
 # --- Frontmatter writers ---------------------------------------------------
 
+def append_log(path, old_status, new_status):
+    """Append a `- DATE: old → new' audit line to the end of PATH."""
+    line = f"- {now_str()}: {old_status or '?'} → {new_status}\n"
+    content = path.read_text(encoding="utf-8")
+    if not content.endswith("\n"):
+        content += "\n"
+    content += line
+    path.write_text(content, encoding="utf-8")
+
+
 def update_property(path, key, value):
     """Set/replace/remove KEY in the frontmatter at PATH.
 
     VALUE of None or "" removes the property. When the key holds a
     block-style list (indented `- item' lines below), those lines are
-    removed/replaced along with the header line.
+    removed/replaced along with the header line. A `status:' change
+    appends an audit log line to the end of PATH.
     """
+    old_status = None
+    if key == "status":
+        task = parse_task(path)
+        if task:
+            old_status = task.get("status")
     content = path.read_text(encoding="utf-8")
     m = FRONTMATTER_RE.match(content)
     if not m:
@@ -220,6 +236,8 @@ def update_property(path, key, value):
     new_fm = "\n".join(new_lines)
     path.write_text(content[:m.start(1)] + new_fm + content[m.end(1):],
                     encoding="utf-8")
+    if key == "status" and value and old_status and old_status != value:
+        append_log(path, old_status, value)
 
 
 def update_list_property(path, key, values):

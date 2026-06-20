@@ -204,40 +204,64 @@ scalar or block-list value."
               (my/tasks--insert-list-block key values)))))
       (save-buffer))))
 
+(defun my/tasks--append-log (file old-status new-status)
+  "Append a status-change audit line to the end of FILE."
+  (let ((line (format "- %s: %s → %s"
+                      (my/tasks--now-string)
+                      (or old-status "?")
+                      new-status)))
+    (let ((buf (find-file-noselect file)))
+      (with-current-buffer buf
+        (save-excursion
+          (goto-char (point-max))
+          (unless (bolp) (insert "\n"))
+          (insert line "\n"))
+        (save-buffer)))))
+
 (defun my/tasks--update-property (file key value)
   "Set KEY to VALUE in FILE's YAML frontmatter. Add if missing, remove if empty.
 When the key currently holds a block-style list (indented `- item' lines),
-those lines are removed/replaced along with the matched header line."
-  (let ((buf (find-file-noselect file)))
-    (with-current-buffer buf
-      (save-excursion
-        (goto-char (point-min))
-        (unless (looking-at "^---\n")
-          (error "No frontmatter in %s" file))
-        (forward-line 1)
-        (let* ((closing (save-excursion
-                          (when (re-search-forward "^---$" nil t)
-                            (line-beginning-position))))
-               (found (re-search-forward
-                       (format "^%s: *.*$" (regexp-quote key)) closing t)))
-          (if found
-              (let ((line-start (line-beginning-position))
-                    (delete-end (1+ (line-end-position))))
-                ;; Extend deletion across following block-list items
-                (save-excursion
-                  (forward-line 1)
-                  (while (and (< (point) (or closing (point-max)))
-                              (looking-at "^[[:space:]]+- "))
+those lines are removed/replaced along with the matched header line.
+A `status:' change is recorded as an audit log entry at the end of FILE."
+  (let ((old-status (and (string= key "status")
+                         (plist-get (my/tasks--parse-frontmatter file)
+                                    :status))))
+    (let ((buf (find-file-noselect file)))
+      (with-current-buffer buf
+        (save-excursion
+          (goto-char (point-min))
+          (unless (looking-at "^---\n")
+            (error "No frontmatter in %s" file))
+          (forward-line 1)
+          (let* ((closing (save-excursion
+                            (when (re-search-forward "^---$" nil t)
+                              (line-beginning-position))))
+                 (found (re-search-forward
+                         (format "^%s: *.*$" (regexp-quote key)) closing t)))
+            (if found
+                (let ((line-start (line-beginning-position))
+                      (delete-end (1+ (line-end-position))))
+                  ;; Extend deletion across following block-list items
+                  (save-excursion
                     (forward-line 1)
-                    (setq delete-end (point))))
-                (delete-region line-start delete-end)
-                (when (and value (not (string-empty-p value)))
-                  (goto-char line-start)
-                  (insert (format "%s: %s\n" key (my/tasks--yaml-quote value)))))
-            (when (and value (not (string-empty-p value)))
-              (goto-char closing)
-              (insert (format "%s: %s\n" key (my/tasks--yaml-quote value)))))))
-      (save-buffer))))
+                    (while (and (< (point) (or closing (point-max)))
+                                (looking-at "^[[:space:]]+- "))
+                      (forward-line 1)
+                      (setq delete-end (point))))
+                  (delete-region line-start delete-end)
+                  (when (and value (not (string-empty-p value)))
+                    (goto-char line-start)
+                    (insert (format "%s: %s\n" key
+                                    (my/tasks--yaml-quote value)))))
+              (when (and value (not (string-empty-p value)))
+                (goto-char closing)
+                (insert (format "%s: %s\n" key
+                                (my/tasks--yaml-quote value)))))))
+        (save-buffer)))
+    (when (and (string= key "status")
+               value (not (string-empty-p value))
+               old-status (not (string= old-status value)))
+      (my/tasks--append-log file old-status value))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Read all tasks

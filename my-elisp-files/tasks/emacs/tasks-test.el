@@ -1387,5 +1387,69 @@ so search hits from the archive are recognisable."
       ;; Without any tasks scheduled today, the day section shows the em-dash.
       (should (string-match-p "—" (buffer-string))))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Status-change audit log
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--status-change-appends-log-line ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\n---\n\n# Task\n"))
+      (my/tasks--update-property file "status" "next")
+      (let ((text (with-temp-buffer
+                    (insert-file-contents file) (buffer-string))))
+        (should (string-match-p ": inbox → next\\b" text))))))
+
+(ert-deftest tasks-test--multiple-status-changes-stack-log-lines ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: inbox\n---\n\n# Task\n"))
+      (my/tasks--update-property file "status" "next")
+      (my/tasks--update-property file "status" "today")
+      (let* ((text (with-temp-buffer
+                     (insert-file-contents file) (buffer-string)))
+             (lines (seq-filter
+                     (lambda (l) (string-match-p ": .+ → .+" l))
+                     (split-string text "\n"))))
+        (should (= 2 (length lines)))
+        (should (string-match-p "inbox → next" (nth 0 lines)))
+        (should (string-match-p "next → today" (nth 1 lines)))))))
+
+(ert-deftest tasks-test--no-log-when-status-unchanged ()
+  "Setting status to the same value must not emit a log line."
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: next\n---\n\n# Task\n"))
+      (my/tasks--update-property file "status" "next")
+      (let ((text (with-temp-buffer
+                    (insert-file-contents file) (buffer-string))))
+        (should-not (string-match-p "→" text))))))
+
+(ert-deftest tasks-test--no-log-for-non-status-property ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: next\n---\n\n# Task\n"))
+      (my/tasks--update-property file "due" "2026-06-25")
+      (let ((text (with-temp-buffer
+                    (insert-file-contents file) (buffer-string))))
+        (should-not (string-match-p "→" text))))))
+
+(ert-deftest tasks-test--archive-records-status-done ()
+  "Archiving a task should log the inbox/next/etc → done transition."
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: next\n---\n\n# Task\n"))
+      (my/tasks--archive-file file)
+      (let* ((archived (car (directory-files my/tasks-archive-directory
+                                              t "\\.md\\'")))
+             (text (with-temp-buffer
+                     (insert-file-contents archived) (buffer-string))))
+        (should (string-match-p ": next → done\\b" text))))))
+
 (provide 'tasks-test)
 ;;; tasks-test.el ends here

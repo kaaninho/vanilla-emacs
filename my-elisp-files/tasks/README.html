@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<title>README.html</title>
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+
+</head>
+
+<body>
+
+<h1 id="tasks—one-file-per-taskgtdsystem">Tasks — One-file-per-task GTD system</h1>
+
+<p>Ein persönliches GTD-Setup mit drei Frontends auf demselben
+Daten-Modell: ein YAML-Frontmatter-Markdown-File pro Task im
+Obsidian-Vault.</p>
+
+<pre><code>tasks/
+├── README.md          ← du bist hier
+├── setup.sh           ← einmal-installiert alles
+├── lib/               ← shared Python: Parsing, YAML, Aktionen
+│   ├── tasks_lib.py
+│   └── test_tasks_lib.py
+├── emacs/             ← Emacs-Frontend (primär)
+│   ├── tasks.el
+│   └── tasks-test.el
+├── notify/            ← macOS-Notifications via launchd
+│   ├── notify.py
+│   ├── test_notify.py
+│   └── com.kaan.tasks-notify.plist
+└── tasks-web/         ← Browser-Kanban (Python-HTTP + TS)
+    ├── server.py
+    ├── app.ts  app.js  index.html  style.css
+    ├── tsconfig.json
+    └── com.kaan.tasks-web.plist
+</code></pre>
+
+<h2 id="datenmodell">Datenmodell</h2>
+
+<p>Jeder Task lebt in <code>$OBSIDIAN_DIR/tasks/&lt;slug&gt;.md</code> (aktiv) oder
+<code>$OBSIDIAN_DIR/tasks/archive/YYYY-MM-DD-&lt;slug&gt;.md</code> (erledigt) mit
+YAML-Frontmatter:</p>
+
+<pre><code class="yaml">---
+status: next                      # inbox | next | today | waiting | someday | done
+due: 2026-06-25
+scheduled: 2026-06-24
+reminder: 2026-06-24 09:00
+project: &quot;[[Projekt X]]&quot;
+contexts:
+  - &quot;@work&quot;
+  - &quot;@computer&quot;
+created: 2026-06-20 14:30
+mu4e-msgid: &quot;abcd1234@host&quot;
+---
+
+# Titel der Aufgabe (= nächste konkrete Action)
+
+Optionaler Body mit Notizen, Links, Sub-Checkboxen.
+</code></pre>
+
+<p>Alle drei Frontends lesen / schreiben diese Files direkt — kein
+Server-im-Weg, keine Datenbank.</p>
+
+<h2 id="komplettessetupneuinstallation">Komplettes Setup (Neuinstallation)</h2>
+
+<p>Ein Script bringt Web-Server und Notifier als launchd-Agents hoch:</p>
+
+<pre><code class="sh">./setup.sh
+</code></pre>
+
+<p>Was es macht:</p>
+
+<ol>
+<li>Checkt <code>python3</code> / <code>tsc</code></li>
+<li>(Re-)kompiliert <code>app.ts → app.js</code>, falls <code>tsc</code> da ist</li>
+<li>Läuft die Python-Tests in <code>lib/</code> und <code>notify/</code></li>
+<li>Entlädt etwaige bereits installierte tasks-Agents (idempotent)</li>
+<li>Kopiert beide <code>.plist</code>-Dateien nach <code>~/Library/LaunchAgents/</code></li>
+<li>Lädt beide Agents</li>
+</ol>
+
+<p>Danach ist <code>http://localhost:8765</code> immer erreichbar und Notifications
+ticken alle 60 s — auch nach Reboot. Idempotent, einfach erneut
+aufrufen wenn sich was an den Plists ändert.</p>
+
+<h2 id="emacs-frontend">Emacs-Frontend</h2>
+
+<p>Lädt aus <code>emacs/tasks.el</code>. In deiner <code>init.el</code>:</p>
+
+<pre><code class="elisp">(add-to-list 'load-path &quot;~/emacsdotfiles/my-elisp-files/tasks/emacs&quot;)
+(require 'tasks)
+</code></pre>
+
+<p><code>(require 'org)</code> und <code>obsidian-directory</code> müssen vorher gesetzt sein.</p>
+
+<h3 id="wichtigekeybindings">Wichtige Keybindings</h3>
+
+<p>Globale Tasten (überall):</p>
+
+<table>
+<colgroup>
+<col />
+<col />
+</colgroup>
+
+<thead>
+<tr>
+	<th> Key </th>
+	<th> Funktion </th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+	<td> <code>C-c t c</code> </td>
+	<td> Capture (öffnet Compose-Buffer) </td>
+</tr>
+<tr>
+	<td> <code>C-c t i</code> / <code>t</code> / <code>n</code> / <code>s</code> / <code>w</code> </td>
+	<td> View für Inbox / Today / Next / Someday / Waiting </td>
+</tr>
+<tr>
+	<td> <code>C-c t A</code> </td>
+	<td> Archive-View </td>
+</tr>
+<tr>
+	<td> <code>C-c t @</code> </td>
+	<td> Tasks zu einem Kontext anzeigen </td>
+</tr>
+<tr>
+	<td> <code>C-c t /</code> </td>
+	<td> Suche über alle Tasks (active + archive) </td>
+</tr>
+<tr>
+	<td> <code>C-c t I</code> </td>
+	<td> Inbox-Processing-Wizard </td>
+</tr>
+<tr>
+	<td> <code>C-c t x</code> / <code>o</code> / <code>p</code> / <code>k</code> / <code>d</code> / <code>S</code> / <code>r</code> / <code>u</code> </td>
+	<td> mark done / toggle today / set status / set contexts / set due / scheduled / reminder / unarchive </td>
+</tr>
+<tr>
+	<td> <code>C-c t m</code> </td>
+	<td> mu4e-Mail des Tasks öffnen </td>
+</tr>
+</tbody>
+</table>
+
+<p>In jeder View außerdem <code>RET TAB t d s r p k m x u f / g v i T A I ?</code>
+— <code>?</code> zeigt die volle Liste. Per-Task-Tasten oben rechts in der
+Header-Line dauerhaft eingeblendet.</p>
+
+<h3 id="inbox-wizard">Inbox-Wizard</h3>
+
+<p><code>M-x my/tasks-process-inbox</code> (oder <code>C-c t I</code>) läuft sequentiell durch
+jeden Inbox-Eintrag: erst Title-Reformulierung (concrete next
+action), dann Single-Key-Status — <code>t</code> today, <code>n</code> next, <code>w</code> waiting,
+<code>s</code> someday, <code>x</code> done (&lt;2min, archiviert), <code>T</code> trash (löschen), <code>+</code>
+defer (+1d/+1w/+1mo/pick), <code>i</code> skip, <code>q</code> quit.</p>
+
+<h2 id="tasks-webbrowser-kanban">tasks-web (Browser-Kanban)</h2>
+
+<p>Nach <code>./setup.sh</code>: <a href="http://localhost:8765">http://localhost:8765</a>.</p>
+
+<p>Manuell starten (für Entwicklung):</p>
+
+<pre><code class="sh">cd tasks-web
+python3 server.py
+</code></pre>
+
+<h3 id="features">Features</h3>
+
+<ul>
+<li>5-Spalten-Kanban: Inbox / Today / Next / Waiting / Someday</li>
+<li>HTML5 Drag&amp;Drop zwischen Spalten → <code>status:</code> wird gesetzt</li>
+<li>Klick auf Karte → Edit-Modal (Titel, Status, Due, Scheduled,
+Reminder, Projekt, Kontexte als Checkboxes)</li>
+<li>Archive-View; un-archive (↩) und archive (✓) pro Karte</li>
+<li>Quick-Capture (Enter), Live-Suche, Kontext-Filter</li>
+<li>Datum-Farben: rot = überfällig, gelb = heute fällig</li>
+<li>Auto-Refresh alle 30 s, wenn Tab im Vordergrund</li>
+<li>Tastenkürzel im Browser: <code>/</code> Suche, <code>c</code> Capture, <code>r</code> Reload, <code>Esc</code>
+schließt Modal</li>
+</ul>
+
+<h3 id="typescriptbauen">TypeScript bauen</h3>
+
+<p><code>app.js</code> wird aus <code>app.ts</code> generiert. Nach Änderung:</p>
+
+<pre><code class="sh">cd tasks-web &amp;&amp; tsc
+</code></pre>
+
+<p>Server serviert immer das kompilierte <code>app.js</code>. <code>./setup.sh</code> macht
+das automatisch, falls <code>tsc</code> installiert ist.</p>
+
+<h3 id="rest-apiintern">REST-API (intern)</h3>
+
+<p><code>server.py</code> ist eine dünne HTTP-Schicht über <code>lib/tasks_lib.py</code>.
+Bindet nur an <code>127.0.0.1</code>.</p>
+
+<table>
+<colgroup>
+<col />
+<col />
+<col />
+</colgroup>
+
+<thead>
+<tr>
+	<th> Endpoint </th>
+	<th> Body </th>
+	<th> Effekt </th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+	<td> <code>GET /api/tasks</code> </td>
+	<td> — </td>
+	<td> aktive Tasks </td>
+</tr>
+<tr>
+	<td> <code>GET /api/tasks/archive</code> </td>
+	<td> — </td>
+	<td> archivierte Tasks </td>
+</tr>
+<tr>
+	<td> <code>GET /api/contexts</code> </td>
+	<td> — </td>
+	<td> erlaubte Kontexte (fixe Liste) </td>
+</tr>
+<tr>
+	<td> <code>POST /api/capture</code> </td>
+	<td> <code>{title}</code> </td>
+	<td> neue Task </td>
+</tr>
+<tr>
+	<td> <code>POST /api/status</code> </td>
+	<td> <code>{file, status}</code> </td>
+	<td> auto archivert / un-archivert </td>
+</tr>
+<tr>
+	<td> <code>POST /api/archive</code> </td>
+	<td> <code>{file}</code> </td>
+	<td> archivieren </td>
+</tr>
+<tr>
+	<td> <code>POST /api/unarchive</code> </td>
+	<td> <code>{file, status}</code> </td>
+	<td> zurück nach active </td>
+</tr>
+<tr>
+	<td> <code>POST /api/update</code> </td>
+	<td> <code>{file, key, value}</code> </td>
+	<td> generisches Property-Update </td>
+</tr>
+<tr>
+	<td> <code>POST /api/edit</code> </td>
+	<td> <code>{file, title?, status?, due?, scheduled?, reminder?, project?, contexts?}</code> </td>
+	<td> Multi-Feld-Edit (atomar) </td>
+</tr>
+</tbody>
+</table>
+
+<h2 id="notificationsmacos">Notifications (macOS)</h2>
+
+<p><code>notify/notify.py</code> läuft via launchd alle 60 s und feuert macOS-Banner
+für die drei Datums-Felder:</p>
+
+<ul>
+<li><code>reminder: 2026-06-20 09:00</code> — One-shot, sobald <code>now ≥ Zeit</code></li>
+<li><code>scheduled: 2026-06-20</code> — einmal pro Tag ab dem Datum, ab
+<code>TASKS_NOTIFY_MORNING_HOUR</code> (default 09:00)</li>
+<li><code>due: 2026-06-20</code> — analog. Überfällige Tasks feuern an jedem
+neuen Tag erneut (genau einmal pro Tag), bis sie archiviert sind</li>
+</ul>
+
+<p>Wenn dein Rechner um 09:00 schläft und du um 10:00 hochfährst, fängt
+launchd das nach. State-File (<code>~/.tasks-notify-state.json</code>)
+verhindert Doppel-Notifications.</p>
+
+<h3 id="konfigurationalleoptional">Konfiguration (alle optional)</h3>
+
+<table>
+<colgroup>
+<col />
+<col />
+<col />
+</colgroup>
+
+<thead>
+<tr>
+	<th> Env&#8211;Var </th>
+	<th> Default </th>
+	<th> Effekt </th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+	<td> <code>OBSIDIAN_DIR</code> </td>
+	<td> iCloud-Pfad </td>
+	<td> wo <code>tasks/</code> liegt </td>
+</tr>
+<tr>
+	<td> <code>TASKS_NOTIFY_STATE</code> </td>
+	<td> <code>~/.tasks-notify-state.json</code> </td>
+	<td> State-File </td>
+</tr>
+<tr>
+	<td> <code>TASKS_NOTIFY_MORNING_HOUR</code> </td>
+	<td> <code>9</code> </td>
+	<td> Stunde für date-only Trigger </td>
+</tr>
+<tr>
+	<td> <code>TASKS_NOTIFY_SOUND</code> </td>
+	<td> <code>Glass</code> </td>
+	<td> macOS-Notification-Sound </td>
+</tr>
+</tbody>
+</table>
+
+<p>In der Plist unter <code>EnvironmentVariables</code> setzen.</p>
+
+<h3 id="debug">Debug</h3>
+
+<p>Logs: <code>/tmp/tasks-notify.log</code> und <code>/tmp/tasks-web.log</code>. Manuell:</p>
+
+<pre><code class="sh">cd notify &amp;&amp; python3 notify.py
+</code></pre>
+
+<h2 id="tests">Tests</h2>
+
+<pre><code class="sh"># Python
+( cd lib    &amp;&amp; python3 -m unittest test_tasks_lib )
+( cd notify &amp;&amp; python3 -m unittest test_notify )
+
+# Elisp
+emacs --batch -L emacs -l tasks-test -f ert-run-tests-batch-and-exit
+</code></pre>
+
+<p>Aktueller Stand: <strong>44 lib + 21 notify + 92 elisp = 157 Tests</strong>.</p>
+
+<h2 id="architektur-Überblick">Architektur-Überblick</h2>
+
+<pre><code>                 ┌──────────────┐
+                 │ tasks_lib.py │   parse / write YAML, archive ops, …
+                 └──┬───────┬───┘
+            ┌───────┘       └───────┐
+            ▼                       ▼
+      ┌─────────────┐         ┌────────────┐
+      │  server.py  │         │ notify.py  │
+      │  (HTTP)     │         │ (launchd)  │
+      └──────┬──────┘         └────────────┘
+             │
+             ▼
+   index.html / style.css / app.js  ← TypeScript-kompiliert
+
+   ┌────────────────────────────┐
+   │  emacs/tasks.el            │  ← liest dieselben .md-Files
+   │  (Emacs-Frontend, primär)  │     direkt; keine HTTP-Kopplung
+   └────────────────────────────┘
+</code></pre>
+
+<p>Bindet nur an <code>127.0.0.1</code>, also nur lokal erreichbar.</p>
+
+</body>
+</html>

@@ -415,6 +415,46 @@ class TasksLibTests(unittest.TestCase):
         self.assertEqual(f('"with \\"escape\\""'), 'with "escape"')
         self.assertEqual(f(""), "")
 
+    # --- Audit log on status changes ---
+
+    def test_status_change_appends_log_line(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text("---\nstatus: inbox\n---\n\n# T\n")
+        self.lib.update_property(p, "status", "next")
+        self.assertRegex(p.read_text(), r"- .+: inbox → next")
+
+    def test_multiple_status_changes_stack(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text("---\nstatus: inbox\n---\n\n# T\n")
+        self.lib.update_property(p, "status", "next")
+        self.lib.update_property(p, "status", "today")
+        text = p.read_text()
+        self.assertRegex(text, r"- .+: inbox → next")
+        self.assertRegex(text, r"- .+: next → today")
+        # Lines appear in order.
+        self.assertLess(text.index("inbox → next"),
+                        text.index("next → today"))
+
+    def test_no_log_when_status_unchanged(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text("---\nstatus: next\n---\n\n# T\n")
+        self.lib.update_property(p, "status", "next")
+        self.assertNotIn("→", p.read_text())
+
+    def test_no_log_for_non_status_property(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text("---\nstatus: next\n---\n\n# T\n")
+        self.lib.update_property(p, "due", "2026-06-25")
+        self.assertNotIn("→", p.read_text())
+
+    def test_archive_logs_transition_to_done(self):
+        p = self.tasks_dir / "t.md"
+        p.write_text("---\nstatus: next\n---\n\n# T\n")
+        self.lib.archive_file("t.md")
+        archived = list(self.archive_dir.glob("*-t.md"))
+        self.assertEqual(len(archived), 1)
+        self.assertRegex(archived[0].read_text(), r"- .+: next → done")
+
 
 if __name__ == "__main__":
     unittest.main()
