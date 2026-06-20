@@ -714,23 +714,24 @@ Used by `my/tasks--draw-view-content' and the alarm banner alike."
                                (list 'my/task-file file)))))))
 
 (defun my/tasks--insert-alarm-banner ()
-  "If there are overdue or today-triggered tasks, render a banner at point."
+  "Render the overdue + today alarm sub-sections at point.
+Emits the two sections (with counts) above the view title; nothing
+is emitted when both lists are empty."
   (let* ((alarms (my/tasks--collect-alarms))
          (overdue (car alarms))
          (today (cdr alarms)))
-    (when (or overdue today)
-      (when overdue
-        (insert (propertize (format "⚠ Überfällig (%d)\n" (length overdue))
-                            'face 'my/tasks-overdue-face))
-        (dolist (task overdue)
-          (my/tasks--render-task-line task))
-        (insert "\n"))
-      (when today
-        (insert (propertize (format "📅 Heute (%d)\n" (length today))
-                            'face 'my/tasks-due-today-face))
-        (dolist (task today)
-          (my/tasks--render-task-line task))
-        (insert "\n")))))
+    (when overdue
+      (insert (propertize (format "⚠ Überfällig (%d)\n" (length overdue))
+                          'face 'my/tasks-overdue-face))
+      (dolist (task overdue)
+        (my/tasks--render-task-line task))
+      (insert "\n"))
+    (when today
+      (insert (propertize (format "📅 Heute (%d)\n" (length today))
+                          'face 'my/tasks-due-today-face))
+      (dolist (task today)
+        (my/tasks--render-task-line task))
+      (insert "\n"))))
 
 (defun my/tasks--draw-view-content (display-title tasks query-fn arg)
   "Insert view content with TASKS into current buffer.
@@ -746,6 +747,9 @@ and renders pending annotations plus per-task context chips."
                         (member my/tasks-view-context-filter
                                 (plist-get task :contexts)))
                       tasks)))
+  ;; Alarm sections first, directly above the view title.
+  (when my/tasks-show-alarm-banner
+    (my/tasks--insert-alarm-banner))
   (insert (propertize display-title 'face 'my/tasks-header-face))
   (when my/tasks-view-context-filter
     (insert (propertize "  ·  " 'face 'my/tasks-rule-face))
@@ -759,8 +763,6 @@ and renders pending annotations plus per-task context chips."
     (insert (propertize (make-string rule-len ?─)
                         'face 'my/tasks-rule-face)))
   (insert "\n\n")
-  (when my/tasks-show-alarm-banner
-    (my/tasks--insert-alarm-banner))
   (if tasks
       (dolist (task tasks)
         (my/tasks--render-task-line task))

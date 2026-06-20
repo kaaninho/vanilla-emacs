@@ -1244,7 +1244,7 @@ so search hits from the archive are recognisable."
       (should (equal titles '("Older" "Newer"))))))
 
 (ert-deftest tasks-test--view-renders-alarm-banner-when-enabled ()
-  "Banner section shows overdue + today across all active statuses."
+  "Banner section shows overdue + today, sitting above the view title."
   (tasks-test--with-temp-dirs
     (let ((today (format-time-string "%Y-%m-%d"))
           (my/tasks-show-alarm-banner t))
@@ -1259,7 +1259,29 @@ so search hits from the archive are recognisable."
           (should (string-match-p "⚠ Überfällig" text))
           (should (string-match-p "▸ Old Stale" text))
           (should (string-match-p "📅 Heute" text))
-          (should (string-match-p "▸ Reply Today" text)))))))
+          (should (string-match-p "▸ Reply Today" text))
+          ;; Both alarm sections appear before the Inbox heading.
+          (let ((overdue-pos (string-match "⚠ Überfällig" text))
+                (today-pos   (string-match "📅 Heute" text))
+                (inbox-pos   (string-match "^Inbox" text)))
+            (should overdue-pos)
+            (should today-pos)
+            (should inbox-pos)
+            (should (< overdue-pos today-pos inbox-pos))))))))
+
+(ert-deftest tasks-test--view-title-uses-header-face ()
+  "View title always uses the big header face — no master heading wraps it."
+  (tasks-test--with-temp-dirs
+    (let ((my/tasks-show-alarm-banner t))
+      (with-temp-file (expand-file-name "a.md" temp-dir)
+        (insert "---\nstatus: someday\ndue: 1999-01-01\n---\n\n# Stale\n"))
+      (my/tasks-show-inbox)
+      (with-current-buffer "*Inbox*"
+        (goto-char (point-min))
+        (re-search-forward "^Inbox")
+        (goto-char (match-beginning 0))
+        (should (eq (get-text-property (point) 'face)
+                    'my/tasks-header-face))))))
 
 (ert-deftest tasks-test--view-hides-alarm-banner-when-disabled ()
   (tasks-test--with-temp-dirs
