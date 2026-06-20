@@ -3,7 +3,28 @@
 Lokales Kanban-UI für das `tasks.el`-System. Liest und schreibt die
 gleichen Markdown-Dateien wie Emacs.
 
-## Start
+## Komplettes Setup (Neu­installation)
+
+Ein einziges Skript bringt den Web-Server UND den Notifier als
+launchd-Agents hoch:
+
+```sh
+./setup.sh
+```
+
+Was es macht:
+1. Checkt `python3` / `tsc`
+2. (Re-)kompiliert `app.ts → app.js` falls `tsc` da ist
+3. Läuft die Python-Tests als Sanity-Check
+4. Entlädt etwaige alte tasks-Agents
+5. Kopiert beide `.plist`-Dateien nach `~/Library/LaunchAgents/`
+6. `launchctl load` beide
+
+Danach ist `http://localhost:8765` immer erreichbar und Notifications
+ticken alle 60 s — auch nach Reboot. Idempotent, also einfach
+nochmal aufrufen wenn sich was an den Plists ändert.
+
+## Manuell starten (Entwicklung)
 
 ```sh
 python3 server.py
