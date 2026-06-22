@@ -859,14 +859,15 @@ is emitted when both lists are empty."
   (let* ((alarms (my/tasks--collect-alarms))
          (overdue (car alarms))
          (today (cdr alarms)))
+    (when (or overdue today) (insert "\n"))
     (when overdue
-      (insert (propertize (format "⚠ Überfällig (%d)\n" (length overdue))
+      (insert (propertize (format "Überfällig (%d)\n" (length overdue))
                           'face 'my/tasks-overdue-face))
       (dolist (task overdue)
         (my/tasks--render-task-line task))
       (insert "\n"))
     (when today
-      (insert (propertize (format "📅 Heute (%d)\n" (length today))
+      (insert (propertize (format "Heute (%d)\n" (length today))
                           'face 'my/tasks-due-today-face))
       (dolist (task today)
         (my/tasks--render-task-line task))
@@ -889,6 +890,7 @@ and renders pending annotations plus per-task context chips."
   ;; Alarm sections first, directly above the view title.
   (when my/tasks-show-alarm-banner
     (my/tasks--insert-alarm-banner))
+  (insert "\n")
   (insert (propertize display-title 'face 'my/tasks-header-face))
   (when my/tasks-view-context-filter
     (insert (propertize "  ·  " 'face 'my/tasks-rule-face))
