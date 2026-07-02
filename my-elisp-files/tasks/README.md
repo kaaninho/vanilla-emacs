@@ -14,10 +14,13 @@ tasks/
 ├── emacs/             ← Emacs-Frontend (primär)
 │   ├── tasks.el
 │   └── tasks-test.el
-├── notify/            ← macOS-Notifications via launchd
+├── notify/            ← macOS-Notifications + Streak via launchd
 │   ├── notify.py
 │   ├── test_notify.py
-│   └── com.kaan.tasks-notify.plist
+│   ├── com.kaan.tasks-notify.plist
+│   ├── streak.py         ← nightly inbox-zero-Streak-Zähler
+│   ├── test_streak.py
+│   └── com.kaan.tasks-streak.plist
 └── tasks-web/         ← Browser-Kanban (Python-HTTP + TS)
     ├── server.py
     ├── app.ts  app.js  index.html  style.css
@@ -43,6 +46,7 @@ contexts:
   - "@computer"
 created: 2026-06-20 14:30
 mu4e-msgid: "abcd1234@host"
+recurrence: weekly                # daily | weekly | monthly | every Nd|w|m
 ---
 
 # Titel der Aufgabe (= nächste konkrete Action)
@@ -98,9 +102,19 @@ Globale Tasten (überall):
 | `C-c t /` | Suche über alle Tasks (active + archive) |
 | `C-c t I` | Inbox-Processing-Wizard |
 | `C-c t x` / `o` / `p` / `k` / `d` / `S` / `r` / `u` | mark done / toggle today / set status / set contexts / set due / scheduled / reminder / unarchive |
+| `C-c t R` | Recurrence setzen (daily / weekly / every Nd\|w\|m) |
+| `C-c t b` | Streak über eine Abwesenheit (Urlaub) retten |
 | `C-c t m` | mu4e-Mail des Tasks öffnen |
 
-In jeder View außerdem `RET TAB t d s r p k m x u f / g v i T A I ?`
+Im **Capture-Buffer**:
+
+| Key | Funktion |
+|---|---|
+| `C-c C-c` | Task speichern |
+| `C-c C-p` | Status der neuen Task setzen (statt Default `inbox`) |
+| `C-c C-k` | Abbrechen |
+
+In jeder View außerdem `RET TAB t d s r p k m R x u b f / g v i T A I ?`
 — `?` zeigt die volle Liste. Per-Task-Tasten oben rechts in der
 Header-Line dauerhaft eingeblendet.
 
@@ -111,6 +125,47 @@ jeden Inbox-Eintrag: erst Title-Reformulierung (concrete next
 action), dann Single-Key-Status — `t` today, `n` next, `w` waiting,
 `s` someday, `x` done (<2min, archiviert), `T` trash (löschen), `+`
 defer (+1d/+1w/+1mo/pick), `i` skip, `q` quit.
+
+### Recurring Tasks (wiederkehrende Aufgaben)
+
+Ein Task kann ein `recurrence:`-Feld tragen. Setzen per `R` in der View
+(oder `C-c t R`). Erlaubte Werte:
+
+- `daily`, `weekly`, `monthly`
+- `every 2d`, `every 3w`, `every 6m` — beliebiges Intervall in
+  **d**ays / **w**eeks / **m**onths
+
+Beim Erledigen (`x`) einer wiederkehrenden Task wird sie archiviert
+**und automatisch eine neue Instanz erzeugt**, mit um das Intervall
+weitergeschobenem `scheduled:`/`due:`-Datum. So läuft z. B. „Müll
+rausbringen — weekly" von selbst weiter. In der Task-Zeile zeigt ein
+🔁-Chip die aktive Recurrence an.
+
+## Streaks (Gamification)
+
+Als sanfter Motivator zählt das System, an wie vielen **Arbeitstagen**
+in Folge du **Inbox-Zero** erreicht hast (Inbox komplett verarbeitet).
+Sichtbar als `🔥 Nd streak` in der Header-Line der Views, daneben
+`✓ N done today`.
+
+Mechanik:
+
+- **Nur Arbeitstage zählen.** Standard Mo–Fr (`my/tasks-streak-working-days`
+  in Emacs, `TASKS_WORKING_DAYS` für den launchd-Job). Wochenenden
+  brechen die Streak **nicht** und erhöhen sie **nicht** — eine
+  Freitag-Inbox-Zero verbindet sich nahtlos mit Montag.
+- Der Zähler läuft nächtlich via launchd (`streak.py`) **und** wird
+  live in Emacs aktualisiert, sobald du Inbox-Zero erreichst — der
+  Moment zählt also sofort, nicht erst um 23:55.
+- **Urlaub überbrücken:** Nach einer längeren Abwesenheit einmal `b`
+  (bzw. `C-c t b`, `my/tasks-streak-bridge`) drücken. Die Streak wird
+  neu verankert, als hätte es keine Lücke gegeben — Urlaubstage zählen
+  nicht mit, die Zahl läuft danach nahtlos weiter. Funktioniert auch,
+  wenn heute schon ein Reset passiert ist (der Vor-Urlaubs-Wert wird
+  aus dem State wiederhergestellt).
+
+State liegt in `~/.tasks-streak.json` (`current`, `longest`,
+`last_zero_date` und die `prev_*`-Felder fürs Bridging).
 
 ## tasks-web (Browser-Kanban)
 
@@ -187,6 +242,8 @@ verhindert Doppel-Notifications.
 | `TASKS_NOTIFY_STATE` | `~/.tasks-notify-state.json` | State-File |
 | `TASKS_NOTIFY_MORNING_HOUR` | `9` | Stunde für date-only Trigger |
 | `TASKS_NOTIFY_SOUND` | `Glass` | macOS-Notification-Sound |
+| `TASKS_STREAK_STATE` | `~/.tasks-streak.json` | State-File des Streak-Zählers |
+| `TASKS_WORKING_DAYS` | `1,2,3,4,5` | ISO-Wochentage (1=Mo … 7=So), die für die Streak zählen |
 
 In der Plist unter `EnvironmentVariables` setzen.
 
@@ -204,12 +261,13 @@ cd notify && python3 notify.py
 # Python
 ( cd lib    && python3 -m unittest test_tasks_lib )
 ( cd notify && python3 -m unittest test_notify )
+( cd notify && python3 -m unittest test_streak )
 
 # Elisp
 emacs --batch -L emacs -l tasks-test -f ert-run-tests-batch-and-exit
 ```
 
-Aktueller Stand: **44 lib + 21 notify + 92 elisp = 157 Tests**.
+Aktueller Stand: **68 lib + 21 notify + 13 streak + 164 elisp = 266 Tests**.
 
 ## Architektur-Überblick
 
