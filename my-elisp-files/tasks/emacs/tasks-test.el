@@ -446,6 +446,26 @@ so search hits from the archive are recognisable."
           (should (string-match-p "first line" text))
           (should (string-match-p "second line" text)))))))
 
+(ert-deftest tasks-test--write-task-file-custom-status ()
+  (tasks-test--with-temp-dirs
+    (let* ((path (my/tasks--write-task-file "Test Task" "" "next"))
+           (task (my/tasks--parse-frontmatter path)))
+      (should (equal (plist-get task :status) "next")))))
+
+(ert-deftest tasks-test--capture-set-status-affects-finalize ()
+  (tasks-test--with-temp-dirs
+    (my/tasks-capture)
+    (with-current-buffer my/tasks-capture-buffer-name
+      (goto-char (point-min))
+      (end-of-line)
+      (insert "Captured with status")
+      (my/tasks-capture-set-status "waiting")
+      (should (equal my/tasks-capture--status "waiting"))
+      (my/tasks-capture-finalize))
+    (let* ((path (expand-file-name "captured-with-status.md" temp-dir))
+           (task (my/tasks--parse-frontmatter path)))
+      (should (equal (plist-get task :status) "waiting")))))
+
 (ert-deftest tasks-test--write-task-file-collision ()
   (tasks-test--with-temp-dirs
     (my/tasks--write-task-file "Same Title" "")
@@ -755,6 +775,21 @@ so search hits from the archive are recognisable."
           (should (string-match-p "- Betreff: Important request" body))
           ;; Subject must NOT appear in the H1 (title).
           (should-not (string-match-p "^# Important request" body)))))))
+
+(ert-deftest tasks-test--capture-from-mu4e-custom-status ()
+  "A STATUS argument overrides the default `inbox' in the frontmatter."
+  (tasks-test--with-temp-dirs
+    (cl-letf (((symbol-function 'mu4e-message-at-point)
+               (lambda () (list :from '((:name "Alice"
+                                        :email "alice@example.com"))
+                                :subject "S"
+                                :message-id "id@host")))
+              ((symbol-function 'mu4e-message-field)
+               (lambda (msg field) (plist-get msg field))))
+      (my/tasks-capture-from-mu4e "Reply to Alice" "next"))
+    (let* ((path (expand-file-name "reply-to-alice.md" temp-dir))
+           (task (my/tasks--parse-frontmatter path)))
+      (should (equal (plist-get task :status) "next")))))
 
 (ert-deftest tasks-test--capture-from-mu4e-errors-outside-mu4e ()
   (tasks-test--with-temp-dirs
@@ -1534,8 +1569,11 @@ run BODY, then clean up."
       '(:current 5 :longest 7 :last_zero_date "2020-01-01")
     (should (= 0 (my/tasks--streak-effective)))))
 
-(ert-deftest tasks-test--streak-effective-alive-yesterday ()
-  (let* ((yesterday (format-time-string
+(ert-deftest tasks-test--streak-effective-alive-prev-working-day ()
+  ;; All weekdays working → previous working day is literally yesterday,
+  ;; so the test is independent of the day it runs on.
+  (let* ((my/tasks-streak-working-days '(1 2 3 4 5 6 7))
+         (yesterday (format-time-string
                      "%Y-%m-%d"
                      (time-subtract (current-time) (days-to-time 1)))))
     (tasks-test--with-streak-state
@@ -1550,18 +1588,20 @@ run BODY, then clean up."
 
 (ert-deftest tasks-test--streak-touch-first-time ()
   (tasks-test--with-temp-dirs
-    (tasks-test--with-streak-state nil
-      ;; No tasks in inbox → first touch starts the streak at 1.
-      (my/tasks--streak-touch)
-      (let ((state (my/tasks--streak-read)))
-        (should (= 1 (plist-get state :current)))
-        (should (= 1 (plist-get state :longest)))
-        (should (equal (plist-get state :last_zero_date)
-                       (format-time-string "%Y-%m-%d")))))))
+    (let ((my/tasks-streak-working-days '(1 2 3 4 5 6 7)))
+      (tasks-test--with-streak-state nil
+        ;; No tasks in inbox → first touch starts the streak at 1.
+        (my/tasks--streak-touch)
+        (let ((state (my/tasks--streak-read)))
+          (should (= 1 (plist-get state :current)))
+          (should (= 1 (plist-get state :longest)))
+          (should (equal (plist-get state :last_zero_date)
+                         (format-time-string "%Y-%m-%d"))))))))
 
-(ert-deftest tasks-test--streak-touch-continues-from-yesterday ()
+(ert-deftest tasks-test--streak-touch-continues-from-prev-working-day ()
   (tasks-test--with-temp-dirs
-    (let ((yesterday (format-time-string
+    (let ((my/tasks-streak-working-days '(1 2 3 4 5 6 7))
+          (yesterday (format-time-string
                       "%Y-%m-%d"
                       (time-subtract (current-time) (days-to-time 1)))))
       (tasks-test--with-streak-state
@@ -1571,20 +1611,77 @@ run BODY, then clean up."
 
 (ert-deftest tasks-test--streak-touch-idempotent-same-day ()
   (tasks-test--with-temp-dirs
-    (let ((today (format-time-string "%Y-%m-%d")))
+    (let ((my/tasks-streak-working-days '(1 2 3 4 5 6 7))
+          (today (format-time-string "%Y-%m-%d")))
       (tasks-test--with-streak-state
           (list :current 3 :longest 3 :last_zero_date today)
         (my/tasks--streak-touch)
         (should (= 3 (plist-get (my/tasks--streak-read) :current)))))))
 
+(ert-deftest tasks-test--streak-touch-noop-on-non-working-day ()
+  ;; Make today a non-working day → touch must leave the state untouched.
+  (tasks-test--with-temp-dirs
+    (let* ((dow (string-to-number (format-time-string "%u")))
+           (my/tasks-streak-working-days (remq dow '(1 2 3 4 5 6 7))))
+      (tasks-test--with-streak-state
+          '(:current 5 :longest 5 :last_zero_date "2020-01-01")
+        (my/tasks--streak-touch)
+        (let ((state (my/tasks--streak-read)))
+          (should (= 5 (plist-get state :current)))
+          (should (equal "2020-01-01"
+                         (plist-get state :last_zero_date))))))))
+
+(ert-deftest tasks-test--streak-touch-gap-stashes-prev ()
+  (tasks-test--with-temp-dirs
+    (let ((my/tasks-streak-working-days '(1 2 3 4 5 6 7)))
+      (tasks-test--with-streak-state
+          '(:current 5 :longest 7 :last_zero_date "2020-01-01")
+        (my/tasks--streak-touch)
+        (let ((s (my/tasks--streak-read)))
+          (should (= 1 (plist-get s :current)))
+          (should (= 5 (plist-get s :prev_current)))
+          (should (equal "2020-01-01" (plist-get s :prev_zero_date))))))))
+
 (ert-deftest tasks-test--streak-touch-does-nothing-when-inbox-non-empty ()
   (tasks-test--with-temp-dirs
     (with-temp-file (expand-file-name "a.md" temp-dir)
       (insert "---\nstatus: inbox\n---\n\n# Not empty\n"))
-    (tasks-test--with-streak-state nil
-      (my/tasks--streak-touch)
-      (let ((state (my/tasks--streak-read)))
-        (should (= 0 (or (plist-get state :current) 0)))))))
+    (let ((my/tasks-streak-working-days '(1 2 3 4 5 6 7)))
+      (tasks-test--with-streak-state nil
+        (my/tasks--streak-touch)
+        (let ((state (my/tasks--streak-read)))
+          (should (= 0 (or (plist-get state :current) 0))))))))
+
+(ert-deftest tasks-test--streak-bridge-reanchors-when-away ()
+  ;; Returning from a long absence before clearing the inbox: the stored
+  ;; streak becomes alive again, ready to continue on the next inbox-zero.
+  (let ((my/tasks-streak-working-days '(1 2 3 4 5 6 7)))
+    (tasks-test--with-streak-state
+        '(:current 12 :longest 12 :last_zero_date "2020-01-01")
+      (should (= 0 (my/tasks--streak-effective)))
+      (my/tasks-streak-bridge)
+      (should (= 12 (plist-get (my/tasks--streak-read) :current)))
+      (should (= 12 (my/tasks--streak-effective))))))
+
+(ert-deftest tasks-test--streak-bridge-recovers-after-reset ()
+  ;; The gap already reset the streak to 1 today; bridge recovers the
+  ;; pre-absence value and counts today on top of it.
+  (let ((today (format-time-string "%Y-%m-%d")))
+    (tasks-test--with-streak-state
+        (list :current 1 :longest 12 :last_zero_date today
+              :prev_current 12 :prev_zero_date "2020-01-01")
+      (my/tasks-streak-bridge)
+      (let ((s (my/tasks--streak-read)))
+        (should (= 13 (plist-get s :current)))
+        (should (= 0 (plist-get s :prev_current)))))))
+
+(ert-deftest tasks-test--streak-bridge-noop-when-already-counted ()
+  (let ((today (format-time-string "%Y-%m-%d")))
+    (tasks-test--with-streak-state
+        (list :current 5 :longest 5 :last_zero_date today
+              :prev_current 0 :prev_zero_date "")
+      (my/tasks-streak-bridge)
+      (should (= 5 (plist-get (my/tasks--streak-read) :current))))))
 
 (ert-deftest tasks-test--header-line-shows-streak-when-alive ()
   (tasks-test--with-streak-state

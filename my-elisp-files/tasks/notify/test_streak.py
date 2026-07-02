@@ -9,6 +9,7 @@ import os
 import sys
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(
@@ -44,40 +45,58 @@ class StreakLogicTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    # 2026-06-19 is a Friday, 2026-06-22 a Monday, 2026-06-23 a Tuesday.
+
     def test_first_zero_day_starts_streak(self):
         state = {"current": 0, "longest": 0, "last_zero_date": ""}
-        self.streak.update_streak(state, "2026-06-20", "2026-06-19", 0)
+        self.streak.update_streak(state, date(2026, 6, 23), 0)
         self.assertEqual(state["current"], 1)
         self.assertEqual(state["longest"], 1)
-        self.assertEqual(state["last_zero_date"], "2026-06-20")
+        self.assertEqual(state["last_zero_date"], "2026-06-23")
 
     def test_consecutive_zero_days_continue_streak(self):
-        state = {"current": 4, "longest": 4, "last_zero_date": "2026-06-19"}
-        self.streak.update_streak(state, "2026-06-20", "2026-06-19", 0)
+        state = {"current": 4, "longest": 4, "last_zero_date": "2026-06-22"}
+        self.streak.update_streak(state, date(2026, 6, 23), 0)
         self.assertEqual(state["current"], 5)
         self.assertEqual(state["longest"], 5)
 
-    def test_same_day_call_is_idempotent(self):
-        state = {"current": 5, "longest": 5, "last_zero_date": "2026-06-20"}
-        self.streak.update_streak(state, "2026-06-20", "2026-06-19", 0)
+    def test_weekend_does_not_break_streak(self):
+        # Friday zero, then Monday zero: the weekend is bridged.
+        state = {"current": 4, "longest": 4, "last_zero_date": "2026-06-19"}
+        self.streak.update_streak(state, date(2026, 6, 22), 0)
         self.assertEqual(state["current"], 5)
 
-    def test_non_zero_inbox_leaves_state(self):
+    def test_weekend_day_neither_counts_nor_breaks(self):
+        # Saturday 2026-06-20: inbox zero must leave the state untouched.
         state = {"current": 5, "longest": 5, "last_zero_date": "2026-06-19"}
-        self.streak.update_streak(state, "2026-06-20", "2026-06-19", 3)
+        self.streak.update_streak(state, date(2026, 6, 20), 0)
         self.assertEqual(state, {"current": 5, "longest": 5,
                                  "last_zero_date": "2026-06-19"})
 
-    def test_gap_resets_streak_to_one(self):
+    def test_same_day_call_is_idempotent(self):
+        state = {"current": 5, "longest": 5, "last_zero_date": "2026-06-23"}
+        self.streak.update_streak(state, date(2026, 6, 23), 0)
+        self.assertEqual(state["current"], 5)
+
+    def test_non_zero_inbox_leaves_state(self):
+        state = {"current": 5, "longest": 5, "last_zero_date": "2026-06-22"}
+        self.streak.update_streak(state, date(2026, 6, 23), 3)
+        self.assertEqual(state, {"current": 5, "longest": 5,
+                                 "last_zero_date": "2026-06-22"})
+
+    def test_gap_resets_streak_and_stashes_prev(self):
         state = {"current": 5, "longest": 7, "last_zero_date": "2026-06-15"}
-        self.streak.update_streak(state, "2026-06-20", "2026-06-19", 0)
+        self.streak.update_streak(state, date(2026, 6, 23), 0)
         self.assertEqual(state["current"], 1)
         self.assertEqual(state["longest"], 7)
-        self.assertEqual(state["last_zero_date"], "2026-06-20")
+        self.assertEqual(state["last_zero_date"], "2026-06-23")
+        # Old value stashed so a bridge can recover it later.
+        self.assertEqual(state["prev_current"], 5)
+        self.assertEqual(state["prev_zero_date"], "2026-06-15")
 
     def test_longest_records_new_high(self):
-        state = {"current": 6, "longest": 6, "last_zero_date": "2026-06-19"}
-        self.streak.update_streak(state, "2026-06-20", "2026-06-19", 0)
+        state = {"current": 6, "longest": 6, "last_zero_date": "2026-06-22"}
+        self.streak.update_streak(state, date(2026, 6, 23), 0)
         self.assertEqual(state["current"], 7)
         self.assertEqual(state["longest"], 7)
 

@@ -38,6 +38,13 @@
   "JSON state file shared with `notify/streak.py' for the inbox-zero counter."
   :type 'file)
 
+(defcustom my/tasks-streak-working-days '(1 2 3 4 5)
+  "ISO weekday numbers (1=Monday … 7=Sunday) that count for the streak.
+Non-working days (weekends by default) never break the inbox-zero streak
+and never advance it, so a Friday inbox-zero connects to Monday.
+Keep this in sync with $TASKS_WORKING_DAYS used by `notify/streak.py'."
+  :type '(repeat integer))
+
 (defcustom my/tasks-waiting-nag-days 14
   "Days a task may sit in `status: waiting' before its `(seit Nd)' chip
 turns red as a nag-to-follow-up indicator."
@@ -393,8 +400,12 @@ frontmatter, title and body."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-c") #'my/tasks-capture-finalize)
     (define-key map (kbd "C-c C-k") #'my/tasks-capture-abort)
+    (define-key map (kbd "C-c C-p") #'my/tasks-capture-set-status)
     map)
   "Keymap for `my/tasks-capture-mode'.")
+
+(defvar-local my/tasks-capture--status "inbox"
+  "Status the captured task will be written with.")
 
 (define-minor-mode my/tasks-capture-mode
   "Minor mode for the task capture buffer.
@@ -402,14 +413,15 @@ Provides \\[my/tasks-capture-finalize] to save and \\[my/tasks-capture-abort] to
   :lighter " Capture"
   :keymap my/tasks-capture-mode-map)
 
-(defun my/tasks--write-task-file (title body)
-  "Write a new task file with TITLE and BODY. Return the resulting path."
+(defun my/tasks--write-task-file (title body &optional status)
+  "Write a new task file with TITLE and BODY. Return the resulting path.
+STATUS defaults to \"inbox\"."
   (my/tasks--ensure-dir my/tasks-directory)
   (let* ((slug (my/tasks--slugify title))
          (path (my/tasks--unique-path my/tasks-directory slug)))
     (with-temp-buffer
       (insert "---\n")
-      (insert "status: inbox\n")
+      (insert (format "status: %s\n" (or status "inbox")))
       (insert (format "created: %s\n" (my/tasks--now-string)))
       (insert "---\n\n")
       (insert (format "# %s\n" title))
@@ -417,6 +429,26 @@ Provides \\[my/tasks-capture-finalize] to save and \\[my/tasks-capture-abort] to
         (insert "\n" body "\n"))
       (write-region (point-min) (point-max) path))
     path))
+
+(defun my/tasks-capture--update-header ()
+  "Refresh the capture buffer header line to reflect the current status."
+  (setq header-line-format
+        (substitute-command-keys
+         (format
+          " New task [%s] — \\[my/tasks-capture-finalize] finish, \\[my/tasks-capture-set-status] status, \\[my/tasks-capture-abort] abort"
+          my/tasks-capture--status))))
+
+(defun my/tasks-capture-set-status (status)
+  "Set the STATUS the captured task will be written with."
+  (interactive
+   (list (completing-read
+          (format "Status (current: %s): " my/tasks-capture--status)
+          my/tasks-statuses nil t)))
+  (unless my/tasks-capture-mode
+    (user-error "Not in a tasks capture buffer"))
+  (setq my/tasks-capture--status status)
+  (my/tasks-capture--update-header)
+  (message "Capture status set to %s" status))
 
 (defun my/tasks-capture ()
   "Open a buffer to compose a new task.
@@ -432,9 +464,7 @@ or abort with \\[my/tasks-capture-abort]."
         (if (fboundp 'markdown-mode) (markdown-mode) (text-mode))
         (my/tasks-capture-mode 1)
         (insert "# \n\n")
-        (setq header-line-format
-              (substitute-command-keys
-               " New task — finish with \\[my/tasks-capture-finalize], abort with \\[my/tasks-capture-abort]"))))
+        (my/tasks-capture--update-header)))
     (pop-to-buffer buf)
     (unless existing
       (goto-char (point-min))
@@ -460,9 +490,10 @@ or abort with \\[my/tasks-capture-abort]."
   (unless my/tasks-capture-mode
     (user-error "Not in a tasks capture buffer"))
   (let* ((parsed (my/tasks--capture-parse))
-         (path (my/tasks--write-task-file (car parsed) (cdr parsed))))
+         (status my/tasks-capture--status)
+         (path (my/tasks--write-task-file (car parsed) (cdr parsed) status)))
     (quit-window t)
-    (message "Captured: %s" (file-name-nondirectory path))))
+    (message "Captured [%s]: %s" status (file-name-nondirectory path))))
 
 (defun my/tasks-capture-abort ()
   "Abort task capture, discarding the buffer contents."
@@ -593,39 +624,96 @@ Falls back to defaults if the file is missing or unreadable."
   (with-temp-file my/tasks-streak-file
     (insert (json-encode-plist state))))
 
+(defun my/tasks--working-day-p (&optional time)
+  "Return non-nil when TIME (default now) falls on a working day."
+  (memq (string-to-number (format-time-string "%u" (or time (current-time))))
+        my/tasks-streak-working-days))
+
+(defun my/tasks--prev-working-day-string (&optional time)
+  "Return the most recent working day strictly before TIME as YYYY-MM-DD."
+  (let ((d (time-subtract (or time (current-time)) (days-to-time 1))))
+    (while (not (my/tasks--working-day-p d))
+      (setq d (time-subtract d (days-to-time 1))))
+    (format-time-string "%Y-%m-%d" d)))
+
 (defun my/tasks--streak-effective ()
   "Return the current streak ONLY if it's still alive.
-A streak is alive when last_zero_date is today or yesterday;
-otherwise the streak has broken and 0 is returned."
+A streak is alive when last_zero_date is today or the previous working
+day (so weekends are bridged); otherwise it has broken and 0 is returned."
   (let* ((state (my/tasks--streak-read))
          (last (or (plist-get state :last_zero_date) ""))
          (today (my/tasks--today-string))
-         (yesterday (format-time-string
-                     "%Y-%m-%d"
-                     (time-subtract (current-time) (days-to-time 1)))))
-    (if (or (string= last today) (string= last yesterday))
+         (prev (my/tasks--prev-working-day-string)))
+    (if (or (string= last today) (string= last prev))
         (or (plist-get state :current) 0)
       0)))
 
 (defun my/tasks--streak-touch ()
   "If the inbox is empty right now, advance the streak counter idempotently.
-Mirrors the logic in `notify/streak.py' so an inbox-zero moment counts
-the moment the user hits it in Emacs, not just at the 23:55 cron."
-  (when (zerop (length (my/tasks-by-status "inbox")))
+Only working days count (see `my/tasks-streak-working-days'); on weekends
+this is a no-op. Mirrors the logic in `notify/streak.py' so an inbox-zero
+moment counts the moment the user hits it in Emacs, not just at the cron.
+On a gap the pre-reset value is stashed into `prev_*' so that
+`my/tasks-streak-bridge' can recover it after an excused absence."
+  (when (and (my/tasks--working-day-p)
+             (zerop (length (my/tasks-by-status "inbox"))))
     (let* ((state (my/tasks--streak-read))
            (today (my/tasks--today-string))
-           (yesterday (format-time-string
-                       "%Y-%m-%d"
-                       (time-subtract (current-time) (days-to-time 1))))
+           (prev (my/tasks--prev-working-day-string))
            (last (or (plist-get state :last_zero_date) ""))
            (current (or (plist-get state :current) 0))
            (longest (or (plist-get state :longest) 0)))
       (unless (string= last today)
-        (let ((new-current (if (string= last yesterday) (1+ current) 1)))
+        (if (string= last prev)
+            (let ((new-current (1+ current)))
+              (my/tasks--streak-write
+               (list :current new-current
+                     :longest (max longest new-current)
+                     :last_zero_date today
+                     :prev_current (or (plist-get state :prev_current) 0)
+                     :prev_zero_date (or (plist-get state :prev_zero_date) ""))))
           (my/tasks--streak-write
-           (list :current new-current
-                 :longest (max longest new-current)
-                 :last_zero_date today)))))))
+           (list :current 1
+                 :longest (max longest 1)
+                 :last_zero_date today
+                 :prev_current current
+                 :prev_zero_date last)))))))
+
+(defun my/tasks-streak-bridge ()
+  "Preserve the inbox-zero streak across an excused absence (e.g. vacation).
+Run this once when you return. Weekends are bridged automatically; use
+this only for longer absences. It re-anchors the streak as if the missed
+working days had been non-working, so your next inbox-zero continues the
+count instead of resetting it. If today's inbox-zero already reset the
+streak to 1, the pre-absence value is recovered and today is counted."
+  (interactive)
+  (let* ((state (my/tasks--streak-read))
+         (today (my/tasks--today-string))
+         (prev (my/tasks--prev-working-day-string))
+         (last (or (plist-get state :last_zero_date) ""))
+         (current (or (plist-get state :current) 0))
+         (longest (or (plist-get state :longest) 0))
+         (prev-current (or (plist-get state :prev_current) 0))
+         (prev-zero (or (plist-get state :prev_zero_date) "")))
+    (cond
+     ;; Today already counted, but a gap had reset it → recover pre-absence
+     ;; value and count today on top of it.
+     ((and (string= last today) (> prev-current current))
+      (let ((restored (1+ prev-current)))
+        (my/tasks--streak-write
+         (list :current restored :longest (max longest restored)
+               :last_zero_date today :prev_current 0 :prev_zero_date ""))
+        (message "Streak bridged: continued at %dd" restored)))
+     ;; Not counted today yet → re-anchor to the previous working day so the
+     ;; existing streak is alive again; clearing the inbox then continues it.
+     ((not (string= last today))
+      (my/tasks--streak-write
+       (list :current current :longest longest
+             :last_zero_date prev
+             :prev_current prev-current :prev_zero_date prev-zero))
+      (message "Streak bridged: %dd preserved — clear your inbox to continue"
+               current))
+     (t (message "Nothing to bridge — streak already at %dd today" current)))))
 
 (defun my/tasks--header-line ()
   "Return the header line: optional `🔥 Nd streak  ✓ N done today' on
@@ -1628,11 +1716,16 @@ Falls back to the name if no email is present."
   (or (my/tasks--current-task-file)
       (my/tasks--current-archived-file)))
 
-(defun my/tasks-capture-from-mu4e (&optional title)
+(defun my/tasks-capture-from-mu4e (&optional title status)
   "Capture a task linked to the current mu4e message.
 TITLE defaults to a `read-string' prompt when called interactively.
+STATUS defaults to \"inbox\"; with a prefix argument it is prompted for
+interactively from `my/tasks-statuses'.
 Saves the Message-ID in frontmatter so `my/tasks-open-mail' can jump back."
-  (interactive (list nil))
+  (interactive
+   (list nil
+         (when current-prefix-arg
+           (completing-read "Status: " my/tasks-statuses nil t nil nil "inbox"))))
   (let ((msg (and (fboundp 'mu4e-message-at-point)
                   (mu4e-message-at-point))))
     (unless msg (user-error "Not in a mu4e buffer"))
@@ -1646,7 +1739,7 @@ Saves the Message-ID in frontmatter so `my/tasks-open-mail' can jump back."
       (let ((path (my/tasks--unique-path my/tasks-directory slug)))
         (with-temp-buffer
           (insert "---\n")
-          (insert "status: inbox\n")
+          (insert (format "status: %s\n" (or status "inbox")))
           (insert (format "created: %s\n" (my/tasks--now-string)))
           (insert (format "mu4e-msgid: %s\n" (my/tasks--yaml-quote msgid)))
           (insert "---\n\n")
@@ -1656,7 +1749,8 @@ Saves the Message-ID in frontmatter so `my/tasks-open-mail' can jump back."
             (insert (format "  - von: %s\n" from-email)))
           (insert (format "  - Betreff: %s\n" subject))
           (write-region (point-min) (point-max) path))
-        (message "Captured: %s" (file-name-nondirectory path))))))
+        (message "Captured [%s]: %s"
+                 (or status "inbox") (file-name-nondirectory path))))))
 
 (defun my/tasks-open-mail ()
   "Open the mu4e message linked to the task at point or in current buffer.
@@ -1711,6 +1805,7 @@ Supports both new (`mu4e-view-message-with-message-id') and old
 (global-set-key (kbd "C-c t a") #'my/tasks-toggle-alarm-banner)
 (global-set-key (kbd "C-c t W") #'my/tasks-show-week)
 (global-set-key (kbd "C-c t R") #'my/tasks-set-recurrence)
+(global-set-key (kbd "C-c t b") #'my/tasks-streak-bridge)
 
 (provide 'tasks)
 ;;; tasks.el ends here
