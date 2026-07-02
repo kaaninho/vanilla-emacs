@@ -578,6 +578,7 @@ Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
   (define-key map (kbd "A") #'my/tasks-show-archive)
   (define-key map (kbd "I") #'my/tasks-process-inbox)
   (define-key map (kbd "W") #'my/tasks-show-week)
+  (define-key map (kbd "b") #'my/tasks-streak-bridge)
   (define-key map (kbd "?") #'my/tasks-view-help)
   (define-key map (kbd "q") #'quit-window))
 
@@ -766,7 +767,10 @@ the left, key-hints right-aligned."
     (princ "  W     show this week (Mon-Sun, grouped by date)\n")
     (princ "  I     start inbox-processing wizard\n")
     (princ "  q     quit (bury buffer)\n")
-    (princ "  ?     this help")))
+    (princ "  ?     this help\n\n")
+    (princ "Streak:\n")
+    (princ "  b     bridge the inbox-zero streak across an absence (vacation)\n")
+    (princ "        weekends are bridged automatically; only working days count")))
 
 (define-derived-mode my/tasks-mode special-mode "Tasks"
   "Major mode for interactive task lists."
