@@ -61,6 +61,20 @@ def today_str():
     return datetime.now().strftime("%Y-%m-%d")
 
 
+def archived_today_count():
+    """Number of tasks archived today.
+
+    Archive filenames have the form `YYYY-MM-DD-<slug>.md', so this is
+    exactly how many tasks the user archived today. Mirrors Emacs'
+    `my/tasks--archived-today-count'.
+    """
+    if not ARCHIVE_DIR.is_dir():
+        return 0
+    prefix = today_str() + "-"
+    return sum(1 for p in ARCHIVE_DIR.glob("*.md")
+               if p.name.startswith(prefix))
+
+
 # --- YAML scalar / list helpers --------------------------------------------
 
 def unquote_yaml(s):

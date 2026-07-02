@@ -16,9 +16,32 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
-# `tasks_lib' lives in the sibling lib/ directory.
+# `tasks_lib' lives in the sibling lib/ directory, `streak' in notify/.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "notify"))
 import tasks_lib as lib  # noqa: E402
+import streak  # noqa: E402
+
+
+def streak_status():
+    """Effective inbox-zero streak + today's done count for the header.
+
+    Reuses `streak.py' for state + working-day logic so the display
+    matches Emacs and the nightly cron. The streak is only reported as
+    alive when the last zero-day is today or the previous working day
+    (weekends bridged); otherwise it shows 0.
+    """
+    from datetime import date
+    state = streak.load_state()
+    last = state.get("last_zero_date", "")
+    today = date.today()
+    alive = last in (today.isoformat(),
+                     streak.prev_working_day(today).isoformat())
+    return {
+        "current": state.get("current", 0) if alive else 0,
+        "longest": state.get("longest", 0),
+        "done_today": lib.archived_today_count(),
+    }
 
 
 PORT = int(os.environ.get("TASKS_PORT", "8765"))
@@ -77,6 +100,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(200, lib.list_archived_tasks())
         elif path == "/api/contexts":
             self._send_json(200, lib.CONTEXTS)
+        elif path == "/api/streak":
+            self._send_json(200, streak_status())
         else:
             self.send_error(404)
 

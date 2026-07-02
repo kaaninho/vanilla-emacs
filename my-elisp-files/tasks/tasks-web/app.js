@@ -22,6 +22,7 @@ const editForm = $("edit-form");
 const modalCancelBtn = $("modal-cancel-btn");
 const modalArchiveBtn = $("modal-archive-btn");
 const contextsCheckboxes = $("contexts-checkboxes");
+const statsEl = $("stats");
 let showingArchive = false;
 let allTasks = [];
 let searchTerm = "";
@@ -268,10 +269,30 @@ async function load() {
     try {
         allTasks = await api(showingArchive ? "/api/tasks/archive" : "/api/tasks");
         renderBoard();
+        void loadStreak();
     }
     catch (err) {
         showToast(err.message, true);
     }
+}
+async function loadStreak() {
+    let s;
+    try {
+        s = await api("/api/streak");
+    }
+    catch {
+        statsEl.innerHTML = "";
+        return;
+    }
+    const chips = [];
+    if (s.current > 0) {
+        const title = s.longest > 0 ? ` title="Longest: ${s.longest}d"` : "";
+        chips.push(`<span class="stat streak"${title}>🔥 ${s.current}d streak</span>`);
+    }
+    if (s.done_today > 0) {
+        chips.push(`<span class="stat done">✓ ${s.done_today} done today</span>`);
+    }
+    statsEl.innerHTML = chips.join("");
 }
 // --- Contexts ---
 async function loadContexts() {

@@ -56,6 +56,7 @@ const editForm = $<HTMLFormElement>("edit-form");
 const modalCancelBtn = $<HTMLButtonElement>("modal-cancel-btn");
 const modalArchiveBtn = $<HTMLButtonElement>("modal-archive-btn");
 const contextsCheckboxes = $("contexts-checkboxes");
+const statsEl = $("stats");
 
 let showingArchive = false;
 let allTasks: Task[] = [];
@@ -346,9 +347,39 @@ async function load(): Promise<void> {
       showingArchive ? "/api/tasks/archive" : "/api/tasks",
     );
     renderBoard();
+    void loadStreak();
   } catch (err) {
     showToast((err as Error).message, true);
   }
+}
+
+// --- Streak / done-today header stats ---
+
+interface Streak {
+  current: number;
+  longest: number;
+  done_today: number;
+}
+
+async function loadStreak(): Promise<void> {
+  let s: Streak;
+  try {
+    s = await api<Streak>("/api/streak");
+  } catch {
+    statsEl.innerHTML = "";
+    return;
+  }
+  const chips: string[] = [];
+  if (s.current > 0) {
+    const title = s.longest > 0 ? ` title="Longest: ${s.longest}d"` : "";
+    chips.push(
+      `<span class="stat streak"${title}>🔥 ${s.current}d streak</span>`,
+    );
+  }
+  if (s.done_today > 0) {
+    chips.push(`<span class="stat done">✓ ${s.done_today} done today</span>`);
+  }
+  statsEl.innerHTML = chips.join("");
 }
 
 // --- Contexts ---

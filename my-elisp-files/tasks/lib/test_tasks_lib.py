@@ -34,6 +34,23 @@ class TasksLibTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    # --- archived_today_count ---
+
+    def test_archived_today_count(self):
+        from datetime import date
+        today = date.today().isoformat()
+        (self.archive_dir / f"{today}-a.md").write_text(
+            "---\nstatus: done\n---\n\n# A\n")
+        (self.archive_dir / f"{today}-b.md").write_text(
+            "---\nstatus: done\n---\n\n# B\n")
+        # An older archive file must not be counted.
+        (self.archive_dir / "2020-01-01-old.md").write_text(
+            "---\nstatus: done\n---\n\n# Old\n")
+        self.assertEqual(self.lib.archived_today_count(), 2)
+
+    def test_archived_today_count_zero(self):
+        self.assertEqual(self.lib.archived_today_count(), 0)
+
     # --- parse_task ---
 
     def test_parse_task_basic(self):

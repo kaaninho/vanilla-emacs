@@ -40,6 +40,31 @@ header h1 {
   letter-spacing: 0.4px;
 }
 
+.stats {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-right: auto;
+}
+
+.stat {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.stat.streak {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.stat.done {
+  color: #7fc47f;
+  background: #7fc47f22;
+}
+
 .actions {
   display: flex;
   gap: 8px;

@@ -187,6 +187,8 @@ python3 server.py
 - Archive-View; un-archive (↩) und archive (✓) pro Karte
 - Quick-Capture (Enter), Live-Suche, Kontext-Filter
 - Datum-Farben: rot = überfällig, gelb = heute fällig
+- Header-Stats: `🔥 Nd streak` + `✓ N done today` (via `GET /api/streak`,
+  gleiche Logik wie Emacs — nur Arbeitstage, Wochenenden überbrückt)
 - Auto-Refresh alle 30 s, wenn Tab im Vordergrund
 - Tastenkürzel im Browser: `/` Suche, `c` Capture, `r` Reload, `Esc`
   schließt Modal
@@ -212,6 +214,7 @@ Bindet nur an `127.0.0.1`.
 | `GET /api/tasks` | — | aktive Tasks |
 | `GET /api/tasks/archive` | — | archivierte Tasks |
 | `GET /api/contexts` | — | erlaubte Kontexte (fixe Liste) |
+| `GET /api/streak` | — | `{current, longest, done_today}` für Header-Stats |
 | `POST /api/capture` | `{title}` | neue Task |
 | `POST /api/status` | `{file, status}` | auto archivert / un-archivert |
 | `POST /api/archive` | `{file}` | archivieren |
