@@ -491,6 +491,169 @@ class TasksLibTests(unittest.TestCase):
         task = self.lib.parse_task(p)
         self.assertEqual(task.get("waiting-since"), "2020-01-01")
 
+    # --- Recurrence ----
+
+    def test_parse_recurrence_aliases(self):
+        f = self.lib.parse_recurrence
+        self.assertEqual(f("daily"), (1, "d"))
+        self.assertEqual(f("weekly"), (1, "w"))
+        self.assertEqual(f("monthly"), (1, "m"))
+        self.assertEqual(f("Weekly"), (1, "w"))   # case-insensitive
+        self.assertEqual(f("every 2d"), (2, "d"))
+        self.assertEqual(f("every 3w"), (3, "w"))
+        self.assertEqual(f("every 6m"), (6, "m"))
+
+    def test_parse_recurrence_rejects_garbage(self):
+        f = self.lib.parse_recurrence
+        self.assertIsNone(f(""))
+        self.assertIsNone(f(None))
+        self.assertIsNone(f("every 5"))
+        self.assertIsNone(f("each week"))
+        self.assertIsNone(f("daily-ish"))
+
+    def test_bump_date_days(self):
+        f = self.lib.bump_date
+        self.assertEqual(f("2026-06-20", 1, "d"), "2026-06-21")
+        self.assertEqual(f("2026-06-30", 5, "d"), "2026-07-05")
+        # Datetime preserved
+        self.assertEqual(f("2026-06-20 09:00", 1, "d"), "2026-06-21 09:00")
+
+    def test_bump_date_weeks(self):
+        f = self.lib.bump_date
+        self.assertEqual(f("2026-06-20", 1, "w"), "2026-06-27")
+        self.assertEqual(f("2026-06-20", 4, "w"), "2026-07-18")
+
+    def test_bump_date_months_basic(self):
+        f = self.lib.bump_date
+        self.assertEqual(f("2026-06-20", 1, "m"), "2026-07-20")
+        self.assertEqual(f("2026-06-20", 6, "m"), "2026-12-20")
+        # Wrap across year
+        self.assertEqual(f("2026-08-15", 12, "m"), "2027-08-15")
+
+    def test_bump_date_months_clamps_day(self):
+        f = self.lib.bump_date
+        # Jan 31 + 1 month → Feb 28 (or 29 in leap years)
+        self.assertEqual(f("2026-01-31", 1, "m"), "2026-02-28")
+        self.assertEqual(f("2024-01-31", 1, "m"), "2024-02-29")
+
+    def test_strip_audit_log_removes_trailing_entries(self):
+        body = (
+            "User notes here.\n"
+            "More notes.\n"
+            "\n"
+            "- 2026-06-20 11:23: inbox → next\n"
+            "- 2026-06-21 09:15: next → today\n"
+        )
+        stripped = self.lib.strip_audit_log(body)
+        self.assertIn("User notes here.", stripped)
+        self.assertIn("More notes.", stripped)
+        self.assertNotIn("→", stripped)
+
+    def test_strip_audit_log_keeps_unrelated_bullets(self):
+        body = (
+            "- bullet point A\n"
+            "- bullet point B\n"
+            "- 2026-06-20: inbox → next\n"
+        )
+        stripped = self.lib.strip_audit_log(body)
+        self.assertIn("bullet point A", stripped)
+        self.assertIn("bullet point B", stripped)
+        self.assertNotIn("→", stripped)
+
+    def test_archive_recurring_task_creates_next_instance(self):
+        from datetime import date
+        p = self.tasks_dir / "wash.md"
+        p.write_text(
+            "---\nstatus: next\nscheduled: 2026-06-20\nrecurrence: weekly\n"
+            "---\n\n# Wäsche waschen\n\nNotes about laundry.\n")
+        self.lib.archive_file("wash.md")
+        # Original is now in archive
+        self.assertFalse(p.exists())
+        archived = list(self.archive_dir.glob("*-wash.md"))
+        self.assertEqual(len(archived), 1)
+        # A fresh instance lives in tasks/
+        actives = [f for f in self.tasks_dir.iterdir()
+                   if f.suffix == ".md" and f.is_file()]
+        self.assertEqual(len(actives), 1)
+        new_task = self.lib.parse_task(actives[0])
+        self.assertEqual(new_task["title"], "Wäsche waschen")
+        self.assertEqual(new_task["recurrence"], "weekly")
+        self.assertEqual(new_task["scheduled"], "2026-06-27")
+        self.assertEqual(new_task["status"], "next")  # pre-done status
+        # Body carried over, no audit log
+        text = actives[0].read_text()
+        self.assertIn("Notes about laundry", text)
+        self.assertNotIn("→", text)
+
+    def test_archive_recurring_today_keeps_status(self):
+        p = self.tasks_dir / "standup.md"
+        p.write_text(
+            "---\nstatus: today\nscheduled: 2026-06-20\nrecurrence: daily\n"
+            "---\n\n# Standup\n")
+        self.lib.archive_file("standup.md")
+        new = [f for f in self.tasks_dir.iterdir()
+               if f.suffix == ".md" and f.is_file()][0]
+        t = self.lib.parse_task(new)
+        self.assertEqual(t["status"], "today")
+        self.assertEqual(t["scheduled"], "2026-06-21")
+
+    def test_archive_recurring_bumps_all_date_fields(self):
+        p = self.tasks_dir / "review.md"
+        p.write_text(
+            "---\nstatus: next\nscheduled: 2026-06-20\ndue: 2026-06-25\n"
+            "reminder: 2026-06-20 09:00\nrecurrence: weekly\n"
+            "---\n\n# Weekly Review\n")
+        self.lib.archive_file("review.md")
+        new = [f for f in self.tasks_dir.iterdir()
+               if f.suffix == ".md" and f.is_file()][0]
+        t = self.lib.parse_task(new)
+        self.assertEqual(t["scheduled"], "2026-06-27")
+        self.assertEqual(t["due"], "2026-07-02")
+        self.assertEqual(t["reminder"], "2026-06-27 09:00")
+
+    def test_archive_recurring_with_no_dates_anchors_to_today(self):
+        from datetime import date, timedelta
+        p = self.tasks_dir / "habit.md"
+        p.write_text(
+            "---\nstatus: next\nrecurrence: every 3d\n---\n\n# Habit\n")
+        self.lib.archive_file("habit.md")
+        new = [f for f in self.tasks_dir.iterdir()
+               if f.suffix == ".md" and f.is_file()][0]
+        t = self.lib.parse_task(new)
+        expected = (date.today() + timedelta(days=3)).isoformat()
+        self.assertEqual(t["scheduled"], expected)
+
+    def test_archive_non_recurring_creates_no_instance(self):
+        p = self.tasks_dir / "once.md"
+        p.write_text("---\nstatus: next\n---\n\n# Once\n")
+        self.lib.archive_file("once.md")
+        actives = [f for f in self.tasks_dir.iterdir()
+                   if f.suffix == ".md" and f.is_file()]
+        self.assertEqual(actives, [])
+
+    def test_archive_recurring_with_contexts_and_project_preserved(self):
+        p = self.tasks_dir / "x.md"
+        p.write_text(
+            "---\nstatus: next\nscheduled: 2026-06-20\nrecurrence: weekly\n"
+            'project: "[[Health]]"\ncontexts:\n  - "@home"\n  - "@morning"\n'
+            "---\n\n# Yoga\n")
+        self.lib.archive_file("x.md")
+        new = [f for f in self.tasks_dir.iterdir()
+               if f.suffix == ".md" and f.is_file()][0]
+        t = self.lib.parse_task(new)
+        self.assertEqual(t["project"], "[[Health]]")
+        self.assertEqual(t["contexts"], ["@home", "@morning"])
+
+    def test_archive_recurring_with_invalid_spec_creates_no_instance(self):
+        p = self.tasks_dir / "bad.md"
+        p.write_text(
+            "---\nstatus: next\nscheduled: 2026-06-20\nrecurrence: gobbledygook\n"
+            "---\n\n# Bad\n")
+        self.lib.archive_file("bad.md")
+        actives = [f for f in self.tasks_dir.iterdir()
+                   if f.suffix == ".md" and f.is_file()]
+        self.assertEqual(actives, [])
+
 
 if __name__ == "__main__":
     unittest.main()

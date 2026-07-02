@@ -9,9 +9,10 @@ Configuration is read from environment variables once at import time
 override `TASKS_DIR' / `ARCHIVE_DIR' attributes directly after reload.
 """
 
+import calendar
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 
@@ -26,7 +27,8 @@ TASKS_DIR = OBSIDIAN_DIR / "tasks"
 ARCHIVE_DIR = TASKS_DIR / "archive"
 
 ALLOWED_STATUSES = {"inbox", "next", "today", "waiting", "someday", "done"}
-EDITABLE_PROPERTIES = ("due", "scheduled", "reminder", "project")
+EDITABLE_PROPERTIES = ("due", "scheduled", "reminder", "project",
+                       "recurrence")
 
 # Frontmatter keys treated as scalar strings even when YAML stores a list.
 # Obsidian's Properties UI can write a logically-scalar field as a
@@ -34,6 +36,7 @@ EDITABLE_PROPERTIES = ("due", "scheduled", "reminder", "project")
 SCALAR_PROPERTY_KEYS = {
     "status", "due", "scheduled", "reminder", "project",
     "created", "archived-at", "mu4e-msgid", "waiting-since",
+    "recurrence",
 }
 
 # Fixed GTD contexts. Mirror of Elisp's `my/tasks-contexts'.
@@ -326,14 +329,142 @@ def unique_path(directory, slug, prefix=""):
     return path
 
 
+# --- Recurrence -------------------------------------------------------------
+
+_RECURRENCE_EVERY_RE = re.compile(r"\Aevery\s+(\d+)([dwm])\Z", re.IGNORECASE)
+_AUDIT_LOG_LINE_RE = re.compile(
+    r"\A-\s+\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?:\s+.+\s+→\s+.+\Z")
+
+
+def parse_recurrence(spec):
+    """Parse a recurrence spec into (COUNT, UNIT) or return None.
+
+    Accepted forms (case-insensitive):
+      daily   → (1, "d")
+      weekly  → (1, "w")
+      monthly → (1, "m")
+      every Nd / every Nw / every Nm → (N, "d"|"w"|"m")
+    """
+    if not spec:
+        return None
+    s = spec.strip().lower()
+    if s == "daily":
+        return (1, "d")
+    if s == "weekly":
+        return (1, "w")
+    if s == "monthly":
+        return (1, "m")
+    m = _RECURRENCE_EVERY_RE.match(s)
+    if m:
+        return (int(m.group(1)), m.group(2))
+    return None
+
+
+def bump_date(date_str, count, unit):
+    """Return DATE-STR (YYYY-MM-DD[ HH:MM]) shifted by COUNT UNIT.
+
+    UNIT is "d" (days), "w" (weeks) or "m" (months, clamping day to the
+    last day of the target month).
+    """
+    has_time = " " in date_str
+    fmt = "%Y-%m-%d %H:%M" if has_time else "%Y-%m-%d"
+    base = datetime.strptime(date_str, fmt)
+    if unit == "d":
+        return (base + timedelta(days=count)).strftime(fmt)
+    if unit == "w":
+        return (base + timedelta(weeks=count)).strftime(fmt)
+    if unit == "m":
+        total = base.month + count
+        year = base.year + (total - 1) // 12
+        month = ((total - 1) % 12) + 1
+        last_day = calendar.monthrange(year, month)[1]
+        day = min(base.day, last_day)
+        return base.replace(year=year, month=month, day=day).strftime(fmt)
+    raise ValueError(f"Unknown recurrence unit: {unit}")
+
+
+def strip_audit_log(body):
+    """Remove trailing audit-log lines (`- DATE: a → b') from BODY."""
+    lines = body.rstrip("\n").split("\n")
+    while lines and _AUDIT_LOG_LINE_RE.match(lines[-1].strip()):
+        lines.pop()
+    out = "\n".join(lines).rstrip("\n")
+    return out + "\n" if out else ""
+
+
+def _generate_recurrence(src, task, pre_done_status):
+    """Create the next instance of a recurring task in TASKS_DIR.
+
+    `src' is the (still-on-disk) original file; `task' is its parsed
+    plist as captured BEFORE the `→ done' update_property calls;
+    `pre_done_status' is the status the task carried just before
+    archive_file ran.
+
+    Returns the new path, or None if the recurrence spec is invalid.
+    """
+    parsed = parse_recurrence(task.get("recurrence"))
+    if not parsed:
+        return None
+    count, unit = parsed
+
+    # Read body fresh from disk (frontmatter mutations are already flushed)
+    # then strip the recent `→ done' audit lines so the new instance
+    # starts clean.
+    content = src.read_text(encoding="utf-8")
+    m = FRONTMATTER_RE.match(content)
+    body = strip_audit_log(content[m.end():] if m else content)
+
+    new_dates = {}
+    for key in ("due", "scheduled", "reminder"):
+        val = task.get(key)
+        if isinstance(val, str) and val:
+            new_dates[key] = bump_date(val, count, unit)
+    if not new_dates:
+        # No anchor in the task → anchor to today.
+        new_dates["scheduled"] = bump_date(today_str(), count, unit)
+
+    fm = ["---", f"status: {pre_done_status or 'next'}"]
+    for key in ("due", "scheduled", "reminder"):
+        if key in new_dates:
+            fm.append(f"{key}: {new_dates[key]}")
+    if task.get("project"):
+        fm.append(f"project: {yaml_quote(task['project'])}")
+    contexts = task.get("contexts")
+    if isinstance(contexts, list) and contexts:
+        fm.append("contexts:")
+        for c in contexts:
+            fm.append(f"  - {yaml_quote(c)}")
+    fm.append(f"recurrence: {task['recurrence']}")
+    fm.append(f"created: {now_str()}")
+    fm.append("---")
+
+    title = task.get("title", "Recurring task")
+    parts = ["\n".join(fm), "", f"# {title}", ""]
+    if body.strip():
+        parts.append(body.rstrip())
+        parts.append("")
+    new_content = "\n".join(parts)
+
+    TASKS_DIR.mkdir(parents=True, exist_ok=True)
+    new_path = unique_path(TASKS_DIR, slugify(title))
+    new_path.write_text(new_content, encoding="utf-8")
+    return new_path
+
+
 # --- Actions ----------------------------------------------------------------
 
 def archive_file(name):
     src = TASKS_DIR / name
     if not src.exists():
         raise FileNotFoundError(name)
+    # Snapshot the task BEFORE we mutate status, so the recurrence
+    # generator sees the original dates and pre-done status.
+    task = parse_task(src) or {}
+    pre_done_status = task.get("status")
     update_property(src, "status", "done")
     update_property(src, "archived-at", now_str())
+    if task.get("recurrence"):
+        _generate_recurrence(src, task, pre_done_status)
     ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
     target = unique_path(ARCHIVE_DIR, src.stem, prefix=f"{today_str()}-")
     src.rename(target)

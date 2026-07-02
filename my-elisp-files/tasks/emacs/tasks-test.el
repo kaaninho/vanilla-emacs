@@ -1706,5 +1706,196 @@ run BODY, then clean up."
         (should (eq (get-text-property (point) 'face)
                     'my/tasks-date-face))))))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Recurring tasks
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(ert-deftest tasks-test--parse-recurrence-aliases ()
+  (should (equal (my/tasks--parse-recurrence "daily") '(1 . ?d)))
+  (should (equal (my/tasks--parse-recurrence "weekly") '(1 . ?w)))
+  (should (equal (my/tasks--parse-recurrence "monthly") '(1 . ?m)))
+  (should (equal (my/tasks--parse-recurrence "Weekly") '(1 . ?w)))
+  (should (equal (my/tasks--parse-recurrence "every 2d") '(2 . ?d)))
+  (should (equal (my/tasks--parse-recurrence "every 3w") '(3 . ?w)))
+  (should (equal (my/tasks--parse-recurrence "every 6m") '(6 . ?m))))
+
+(ert-deftest tasks-test--parse-recurrence-rejects-garbage ()
+  (should-not (my/tasks--parse-recurrence nil))
+  (should-not (my/tasks--parse-recurrence ""))
+  (should-not (my/tasks--parse-recurrence "every 5"))
+  (should-not (my/tasks--parse-recurrence "each week"))
+  (should-not (my/tasks--parse-recurrence "daily-ish")))
+
+(ert-deftest tasks-test--bump-date-days ()
+  (should (equal (my/tasks--bump-date "2026-06-20" 1 ?d) "2026-06-21"))
+  (should (equal (my/tasks--bump-date "2026-06-30" 5 ?d) "2026-07-05"))
+  (should (equal (my/tasks--bump-date "2026-06-20 09:00" 1 ?d)
+                 "2026-06-21 09:00")))
+
+(ert-deftest tasks-test--bump-date-weeks ()
+  (should (equal (my/tasks--bump-date "2026-06-20" 1 ?w) "2026-06-27"))
+  (should (equal (my/tasks--bump-date "2026-06-20" 4 ?w) "2026-07-18")))
+
+(ert-deftest tasks-test--bump-date-months-basic ()
+  (should (equal (my/tasks--bump-date "2026-06-20" 1 ?m) "2026-07-20"))
+  (should (equal (my/tasks--bump-date "2026-06-20" 6 ?m) "2026-12-20"))
+  (should (equal (my/tasks--bump-date "2026-08-15" 12 ?m) "2027-08-15")))
+
+(ert-deftest tasks-test--bump-date-months-clamps-day ()
+  (should (equal (my/tasks--bump-date "2026-01-31" 1 ?m) "2026-02-28"))
+  (should (equal (my/tasks--bump-date "2024-01-31" 1 ?m) "2024-02-29")))
+
+(ert-deftest tasks-test--strip-audit-log ()
+  (let ((stripped
+         (my/tasks--strip-audit-log
+          (concat "User notes here.\nMore notes.\n\n"
+                  "- 2026-06-20 11:23: inbox → next\n"
+                  "- 2026-06-21 09:15: next → today\n"))))
+    (should (string-match-p "User notes here" stripped))
+    (should (string-match-p "More notes" stripped))
+    (should-not (string-match-p "→" stripped))))
+
+(ert-deftest tasks-test--strip-audit-log-keeps-other-bullets ()
+  (let ((stripped
+         (my/tasks--strip-audit-log
+          "- bullet A\n- bullet B\n- 2026-06-20: inbox → next\n")))
+    (should (string-match-p "bullet A" stripped))
+    (should (string-match-p "bullet B" stripped))
+    (should-not (string-match-p "→" stripped))))
+
+(defun tasks-test--first-active-md (dir)
+  "Return the (single) active .md file in DIR, ignoring subdirs."
+  (car (seq-filter
+        (lambda (f) (and (not (file-directory-p f))
+                         (string-suffix-p ".md" f)))
+        (directory-files dir t "\\.md\\'"))))
+
+(ert-deftest tasks-test--archive-recurring-creates-next-instance ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "wash.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: next\nscheduled: 2026-06-20\n"
+                "recurrence: weekly\n---\n\n# Wäsche waschen\n\n"
+                "Notes about laundry.\n"))
+      (my/tasks--archive-file file)
+      (should-not (file-exists-p file))
+      (should (= 1 (length (directory-files my/tasks-archive-directory
+                                            t "\\.md\\'"))))
+      (let* ((new (tasks-test--first-active-md my/tasks-directory))
+             (task (my/tasks--parse-frontmatter new)))
+        (should new)
+        (should (equal (plist-get task :title) "Wäsche waschen"))
+        (should (equal (plist-get task :recurrence) "weekly"))
+        (should (equal (plist-get task :scheduled) "2026-06-27"))
+        (should (equal (plist-get task :status) "next"))
+        (let ((text (with-temp-buffer (insert-file-contents new)
+                                      (buffer-string))))
+          (should (string-match-p "Notes about laundry" text))
+          (should-not (string-match-p "→" text)))))))
+
+(ert-deftest tasks-test--archive-recurring-bumps-all-date-fields ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "review.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: next\nscheduled: 2026-06-20\n"
+                "due: 2026-06-25\nreminder: 2026-06-20 09:00\n"
+                "recurrence: weekly\n---\n\n# Weekly Review\n"))
+      (my/tasks--archive-file file)
+      (let* ((task (my/tasks--parse-frontmatter
+                    (tasks-test--first-active-md my/tasks-directory))))
+        (should (equal (plist-get task :scheduled) "2026-06-27"))
+        (should (equal (plist-get task :due) "2026-07-02"))
+        (should (equal (plist-get task :reminder) "2026-06-27 09:00"))))))
+
+(ert-deftest tasks-test--archive-recurring-today-keeps-status ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "standup.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: today\nscheduled: 2026-06-20\n"
+                "recurrence: daily\n---\n\n# Standup\n"))
+      (my/tasks--archive-file file)
+      (let* ((task (my/tasks--parse-frontmatter
+                    (tasks-test--first-active-md my/tasks-directory))))
+        (should (equal (plist-get task :status) "today"))
+        (should (equal (plist-get task :scheduled) "2026-06-21"))))))
+
+(ert-deftest tasks-test--archive-recurring-no-dates-anchors-to-today ()
+  (tasks-test--with-temp-dirs
+    (let* ((file (expand-file-name "habit.md" temp-dir))
+           (today-+3 (format-time-string
+                      "%Y-%m-%d"
+                      (time-add (current-time) (days-to-time 3)))))
+      (with-temp-file file
+        (insert "---\nstatus: next\nrecurrence: every 3d\n---\n\n# Habit\n"))
+      (my/tasks--archive-file file)
+      (let* ((task (my/tasks--parse-frontmatter
+                    (tasks-test--first-active-md my/tasks-directory))))
+        (should (equal (plist-get task :scheduled) today-+3))))))
+
+(ert-deftest tasks-test--archive-non-recurring-creates-no-instance ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "once.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: next\n---\n\n# Once\n"))
+      (my/tasks--archive-file file)
+      (should-not (tasks-test--first-active-md my/tasks-directory)))))
+
+(ert-deftest tasks-test--archive-recurring-invalid-spec-creates-no-instance ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "bad.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: next\nscheduled: 2026-06-20\n"
+                "recurrence: gobbledygook\n---\n\n# Bad\n"))
+      (my/tasks--archive-file file)
+      (should-not (tasks-test--first-active-md my/tasks-directory)))))
+
+(ert-deftest tasks-test--archive-recurring-preserves-contexts-and-project ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "yoga.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: next\nscheduled: 2026-06-20\n"
+                "recurrence: weekly\n"
+                "project: \"[[Health]]\"\ncontexts:\n  - \"@home\"\n"
+                "  - \"@morning\"\n---\n\n# Yoga\n"))
+      (my/tasks--archive-file file)
+      (let* ((task (my/tasks--parse-frontmatter
+                    (tasks-test--first-active-md my/tasks-directory))))
+        (should (equal (plist-get task :project) "[[Health]]"))
+        (should (equal (plist-get task :contexts) '("@home" "@morning")))))))
+
+(ert-deftest tasks-test--card-renders-recurrence-chip ()
+  (tasks-test--with-temp-dirs
+    (with-temp-file (expand-file-name "a.md" temp-dir)
+      (insert "---\nstatus: next\nrecurrence: weekly\n---\n\n# A\n"))
+    (my/tasks-show-next)
+    (with-current-buffer "*Next*"
+      (should (string-match-p "🔁 weekly" (buffer-string))))))
+
+(ert-deftest tasks-test--set-recurrence-writes-field ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: next\n---\n\n# T\n"))
+      (find-file file)
+      (my/tasks-set-recurrence "weekly")
+      (should (equal (plist-get (my/tasks--parse-frontmatter file)
+                                :recurrence)
+                     "weekly")))))
+
+(ert-deftest tasks-test--set-recurrence-empty-clears ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file
+        (insert "---\nstatus: next\nrecurrence: weekly\n---\n\n# T\n"))
+      (find-file file)
+      (my/tasks-set-recurrence "")
+      (should-not (plist-get (my/tasks--parse-frontmatter file)
+                             :recurrence)))))
+
+(ert-deftest tasks-test--set-recurrence-invalid-errors ()
+  (tasks-test--with-temp-dirs
+    (let ((file (expand-file-name "t.md" temp-dir)))
+      (with-temp-file file (insert "---\nstatus: next\n---\n\n# T\n"))
+      (find-file file)
+      (should-error (my/tasks-set-recurrence "garbage") :type 'user-error))))
+
 (provide 'tasks-test)
 ;;; tasks-test.el ends here

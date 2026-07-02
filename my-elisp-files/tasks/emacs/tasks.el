@@ -97,7 +97,7 @@ turns red as a nag-to-follow-up indicator."
 
 (defconst my/tasks--scalar-property-keys
   '(:status :due :scheduled :reminder :project :created :archived-at
-    :mu4e-msgid :waiting-since)
+    :mu4e-msgid :waiting-since :recurrence)
   "Frontmatter keys treated as scalar strings even when YAML stores a list.
 Obsidian's Properties UI can write a logically-scalar field as a
 one-element block list; this normalises that back to a string.")
@@ -536,6 +536,7 @@ Toggled with TAB. Reset on full re-render (e.g. `g', view switch).")
   (define-key map (kbd "u") #'my/tasks-unarchive)
   (define-key map (kbd "m") #'my/tasks-open-mail)
   (define-key map (kbd "k") #'my/tasks-set-contexts)
+  (define-key map (kbd "R") #'my/tasks-set-recurrence)
   (define-key map (kbd "f") #'my/tasks-view-filter-context)
   (define-key map (kbd "a") #'my/tasks-toggle-alarm-banner)
   (define-key map (kbd "/") #'my/tasks-search)
@@ -660,7 +661,8 @@ the left, key-hints right-aligned."
     (princ "  d / s / r   set due / scheduled / reminder\n")
     (princ "  p     set status (completing-read)\n")
     (princ "  k     set contexts (multi-select)\n")
-    (princ "  x     mark done (archive)\n")
+    (princ "  R     set recurrence (daily / weekly / every Nd|w|m)\n")
+    (princ "  x     mark done (archive; recurring tasks auto-respawn)\n")
     (princ "  u     un-archive\n")
     (princ "  m     open the linked mu4e message\n\n")
     (princ "Filter / search:\n")
@@ -835,6 +837,9 @@ Used by `my/tasks--draw-view-content' and the alarm banner alike."
       (dolist (c contexts)
         (insert (propertize (format "  %s" c)
                             'face 'my/tasks-context-face))))
+    (when-let ((recurrence (plist-get task :recurrence)))
+      (insert (propertize (format "  🔁 %s" recurrence)
+                          'face 'my/tasks-date-face)))
     (when-let ((archived-at (plist-get task :archived-at)))
       (insert (propertize (format "  📦 %s" archived-at)
                           'face 'my/tasks-date-face)))
@@ -1159,6 +1164,27 @@ In a view buffer the change is queued and applied on next refresh/reopen."
     (unless file (user-error "No task at point"))
     (my/tasks--set-or-queue-status file status)))
 
+(defun my/tasks-set-recurrence (spec)
+  "Set the `recurrence' field on the task at point. Empty input clears it.
+Valid SPEC: `daily', `weekly', `monthly', `every Nd|w|m'."
+  (interactive
+   (list (completing-read
+          "Recurrence (empty to clear): "
+          '("daily" "weekly" "monthly"
+            "every 2d" "every 3d" "every 2w" "every 2m" "every 3m")
+          nil nil)))
+  (let ((file (my/tasks--current-task-file)))
+    (unless file (user-error "No task at point"))
+    (let ((trimmed (string-trim spec)))
+      (cond
+       ((string-empty-p trimmed)
+        (my/tasks--update-property file "recurrence" nil))
+       ((my/tasks--parse-recurrence trimmed)
+        (my/tasks--update-property file "recurrence" trimmed))
+       (t (user-error "Invalid recurrence: %s" trimmed))))
+    (when (derived-mode-p 'my/tasks-mode)
+      (my/tasks--redraw-view))))
+
 (defun my/tasks-toggle-today ()
   "Toggle status:today on the task at point.
 In a view buffer the change is queued and applied on next refresh/reopen."
@@ -1369,11 +1395,148 @@ Defer asks for a span (+1d/+1w/+1mo/pick) and sets status to next."
 ;; Archive
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defconst my/tasks--recurrence-every-re
+  "\\`every[[:space:]]+\\([0-9]+\\)\\([dwm]\\)\\'"
+  "Regex matching `every Nd', `every Nw' or `every Nm' (case-insensitive
+when applied via `string-match' on a downcased input).")
+
+(defconst my/tasks--audit-log-line-re
+  "\\`-[[:space:]]+[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}\\(?:[[:space:]]+[0-9]\\{2\\}:[0-9]\\{2\\}\\)?:[[:space:]].+→.+\\'"
+  "Regex matching one audit-log line in a task body.")
+
+(defun my/tasks--parse-recurrence (spec)
+  "Parse SPEC into (COUNT . UNIT) or nil. UNIT is `d', `w' or `m'."
+  (when (and spec (stringp spec))
+    (let ((s (downcase (string-trim spec))))
+      (cond
+       ((string= s "daily") '(1 . ?d))
+       ((string= s "weekly") '(1 . ?w))
+       ((string= s "monthly") '(1 . ?m))
+       ((string-match my/tasks--recurrence-every-re s)
+        (cons (string-to-number (match-string 1 s))
+              (aref (match-string 2 s) 0)))))))
+
+(defun my/tasks--bump-date (date-str count unit)
+  "Return DATE-STR (YYYY-MM-DD[ HH:MM]) shifted by COUNT UNIT.
+UNIT is the char `?d', `?w' or `?m'; months clamp the day to the
+target month's last day."
+  (let* ((has-time (and (>= (length date-str) 11)
+                        (eq (aref date-str 10) ?\s)))
+         (parsed (parse-time-string
+                  (if has-time date-str (concat date-str " 00:00"))))
+         (minute (nth 1 parsed))
+         (hour (nth 2 parsed))
+         (day (nth 3 parsed))
+         (month (nth 4 parsed))
+         (year (nth 5 parsed))
+         (fmt (if has-time "%Y-%m-%d %H:%M" "%Y-%m-%d")))
+    (cond
+     ((memq unit '(?d ?w))
+      (let* ((delta (if (eq unit ?w) (* count 7) count))
+             (base (encode-time 0 minute hour day month year))
+             (new (time-add base (days-to-time delta))))
+        (format-time-string fmt new)))
+     ((eq unit ?m)
+      (require 'calendar)
+      (let* ((total (+ month count))
+             (new-year (+ year (/ (1- total) 12)))
+             (new-month (1+ (mod (1- total) 12)))
+             (last-day (calendar-last-day-of-month new-month new-year))
+             (new-day (min day last-day)))
+        (format-time-string
+         fmt (encode-time 0 minute hour new-day new-month new-year)))))))
+
+(defun my/tasks--strip-audit-log (body)
+  "Remove trailing `- DATE: a → b' audit lines from BODY."
+  (let* ((trimmed (replace-regexp-in-string "\n+\\'" "" body))
+         (lines (split-string trimmed "\n")))
+    (while (and lines
+                (string-match my/tasks--audit-log-line-re
+                              (string-trim (car (last lines)))))
+      (setq lines (butlast lines)))
+    (if lines (concat (mapconcat #'identity lines "\n") "\n") "")))
+
+(defun my/tasks--read-body (file)
+  "Return everything after the frontmatter in FILE (post-`---' content)."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (goto-char (point-min))
+    (if (and (looking-at "^---\n")
+             (re-search-forward "^---$" nil t))
+        (progn (forward-line 1)
+               (buffer-substring-no-properties (point) (point-max)))
+      (buffer-string))))
+
+(defun my/tasks--generate-recurrence (file task pre-done-status)
+  "Create the next instance of a recurring TASK in `my/tasks-directory'.
+FILE is the still-existing path of the source task on disk.
+PRE-DONE-STATUS is the status the task carried just before archive.
+Returns the new path, or nil if the recurrence spec is invalid."
+  (let ((parsed (my/tasks--parse-recurrence (plist-get task :recurrence))))
+    (when parsed
+      (let* ((count (car parsed))
+             (unit (cdr parsed))
+             (body (my/tasks--strip-audit-log
+                    (my/tasks--read-body file)))
+             (new-dates
+              (delq nil
+                    (mapcar
+                     (lambda (key)
+                       (let ((v (plist-get task key)))
+                         (and (stringp v) (not (string-empty-p v))
+                              (cons key
+                                    (my/tasks--bump-date v count unit)))))
+                     '(:due :scheduled :reminder)))))
+        (unless new-dates
+          (setq new-dates
+                (list (cons :scheduled
+                            (my/tasks--bump-date
+                             (my/tasks--today-string) count unit)))))
+        (let* ((title (or (plist-get task :title) "Recurring task"))
+               (status (or pre-done-status "next"))
+               (project (plist-get task :project))
+               (contexts (plist-get task :contexts))
+               (slug (my/tasks--slugify title))
+               (path (my/tasks--unique-path my/tasks-directory slug)))
+          (my/tasks--ensure-dir my/tasks-directory)
+          (with-temp-buffer
+            (insert "---\n")
+            (insert (format "status: %s\n" status))
+            (dolist (key '(:due :scheduled :reminder))
+              (let ((v (cdr (assq key new-dates))))
+                (when v
+                  (insert (format "%s: %s\n"
+                                  (substring (symbol-name key) 1) v)))))
+            (when project
+              (insert (format "project: %s\n"
+                              (my/tasks--yaml-quote project))))
+            (when (and (listp contexts) contexts)
+              (my/tasks--insert-list-block "contexts" contexts))
+            (insert (format "recurrence: %s\n"
+                            (plist-get task :recurrence)))
+            (insert (format "created: %s\n" (my/tasks--now-string)))
+            (insert "---\n\n")
+            (insert (format "# %s\n" title))
+            (let ((trimmed (string-trim body)))
+              (unless (string-empty-p trimmed)
+                (insert "\n" trimmed "\n")))
+            (write-region (point-min) (point-max) path))
+          path)))))
+
 (defun my/tasks--archive-file (file)
-  "Set status=done, write archived-at, move FILE to archive directory."
+  "Set status=done, write archived-at, move FILE to archive directory.
+If the task has a `recurrence:' field, also creates the next instance
+in `my/tasks-directory' before the rename."
   (my/tasks--ensure-dir my/tasks-archive-directory)
-  (my/tasks--update-property file "status" "done")
-  (my/tasks--update-property file "archived-at" (my/tasks--now-string))
+  ;; Snapshot BEFORE we mutate the file, so the recurrence generator
+  ;; sees the original status + dates.
+  (let* ((task (my/tasks--parse-frontmatter file))
+         (pre-done-status (plist-get task :status))
+         (recurrence (plist-get task :recurrence)))
+    (my/tasks--update-property file "status" "done")
+    (my/tasks--update-property file "archived-at" (my/tasks--now-string))
+    (when recurrence
+      (my/tasks--generate-recurrence file task pre-done-status)))
   (let* ((today (my/tasks--today-string))
          (base (file-name-base file))
          (target (my/tasks--unique-path
@@ -1547,6 +1710,7 @@ Supports both new (`mu4e-view-message-with-message-id') and old
 (global-set-key (kbd "C-c t I") #'my/tasks-process-inbox)
 (global-set-key (kbd "C-c t a") #'my/tasks-toggle-alarm-banner)
 (global-set-key (kbd "C-c t W") #'my/tasks-show-week)
+(global-set-key (kbd "C-c t R") #'my/tasks-set-recurrence)
 
 (provide 'tasks)
 ;;; tasks.el ends here
