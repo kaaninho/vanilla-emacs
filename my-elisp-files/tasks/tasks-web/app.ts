@@ -371,13 +371,18 @@ async function loadStreak(): Promise<void> {
   }
   const chips: string[] = [];
   if (s.current > 0) {
-    const title = s.longest > 0 ? ` title="Longest: ${s.longest}d"` : "";
+    const longest = s.longest > 0 ? ` (längste: ${s.longest}d)` : "";
+    const title =
+      `Arbeitstage in Folge, an denen du die Inbox komplett geleert hast${longest}.`;
     chips.push(
-      `<span class="stat streak"${title}>🔥 ${s.current}d streak</span>`,
+      `<span class="stat streak" title="${title}">🔥 ${s.current}d streak</span>`,
     );
   }
   if (s.done_today > 0) {
-    chips.push(`<span class="stat done">✓ ${s.done_today} done today</span>`);
+    const title = "Aufgaben, die du heute erledigt (archiviert) hast.";
+    chips.push(
+      `<span class="stat done" title="${title}">✓ ${s.done_today} done today</span>`,
+    );
   }
   statsEl.innerHTML = chips.join("");
 }
