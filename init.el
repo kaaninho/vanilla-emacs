@@ -516,10 +516,14 @@
 ;;; Obsidian-Integration
 (use-package obsidian
   :init
-  (setq obsidian-directory "/Users/kaan/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianOnIcloud"
-        obsidian-daily-notes-directory "Daily"
-        obsidian-inbox-directory "⭐INBOX"
-        obsidian-templates-directory nil)
+  ;; NB: `obsidian-directory' is a defcustom with a `:set' handler that also
+  ;; computes `obsidian--relative-path-length' (needed for backlinks / path
+  ;; resolution). Plain `setq' bypasses that handler and silently breaks the
+  ;; backlinks panel, so it MUST be set via `setopt'/customize.
+  (setopt obsidian-directory "/Users/kaan/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianOnIcloud"
+          obsidian-daily-notes-directory "Daily"
+          obsidian-inbox-directory "⭐INBOX"
+          obsidian-templates-directory nil)
   (setopt markdown-enable-wiki-links t)
 
   :bind (("C-c d" . obsidian-daily-note-with-time)
