@@ -349,8 +349,6 @@
   ;; org-reveal
   (setq org-reveal-root "file:///home/kaan/tmp/reveal.js")
 
-  (add-to-list 'load-path "/home/kaan/.emacs.d/my-elisp-files/")
-
   ;; org-babel language support
   (setq org-confirm-babel-evaluate nil)
   (with-eval-after-load 'org
@@ -526,6 +524,11 @@
 
   :bind (("C-c n c" . obsidian-capture)
          ("C-c d" . obsidian-daily-note-with-time)))
+
+;; Tasks (GTD system) — must load AFTER `obsidian-directory' is set,
+;; since tasks.el derives its paths from it at load time.
+(add-to-list 'load-path "/Users/kaan/.emacs.d/my-elisp-files/tasks/emacs")
+(require 'tasks)
 
 (use-package org-roam-ui
   :after org-roam
