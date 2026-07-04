@@ -525,11 +525,17 @@
           obsidian-inbox-directory "⭐INBOX"
           obsidian-templates-directory nil)
   (setopt markdown-enable-wiki-links t)
-
+  (setopt obsidian-backlinks-panel-width 40)
+  :config
+  ;; Enable `obsidian-mode' in all vault files. Without this the backlinks
+  ;; panel never populates, because `obsidian--populate-backlinks-buffer'
+  ;; only runs when `obsidian-mode' is active in the source buffer.
+  (global-obsidian-mode 1)
   :bind (("C-c d" . obsidian-daily-note-with-time)
          ("C-c o c" . obsidian-capture)
          ("C-c o f" . obsidian-jump)
          ("C-c o i" . obsidian-insert-wikilink)
+         ("C-c o b" . obsidian-toggle-backlinks-panel)
          ))
 
 ;; Tasks (GTD system) — must load AFTER `obsidian-directory' is set,
