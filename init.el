@@ -522,8 +522,11 @@
         obsidian-templates-directory nil)
   (setopt markdown-enable-wiki-links t)
 
-  :bind (("C-c n c" . obsidian-capture)
-         ("C-c d" . obsidian-daily-note-with-time)))
+  :bind (("C-c d" . obsidian-daily-note-with-time)
+         ("C-c o c" . obsidian-capture)
+         ("C-c o f" . obsidian-jump)
+         ("C-c o i" . obsidian-insert-wikilink)
+         ))
 
 ;; Tasks (GTD system) — must load AFTER `obsidian-directory' is set,
 ;; since tasks.el derives its paths from it at load time.
@@ -547,13 +550,11 @@
   (setopt markdown-header-scaling-values '(1.5 1.3 1.2 1.0 1.0 1.0))
 
   :bind
-  (("C-c n f" . obsidian-jump)
-   (:map markdown-mode-map
+  ((:map markdown-mode-map
          ("C-c C-p" . markdown-preview)
          ("C-c C-e" . markdown-do)
          ;; I will almost always only use markdown mode with obsidian
-         ("C-c C-o" . obsidian-follow-link-at-point)
-         ("C-c n i" . obsidian-insert-wikilink))))
+         ("C-c C-o" . obsidian-follow-link-at-point))))
 
 ;;; Idle Highlight Mode
 (use-package auto-highlight-symbol
