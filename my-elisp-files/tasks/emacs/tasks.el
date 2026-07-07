@@ -1172,6 +1172,11 @@ and renders pending annotations plus per-task context chips."
       (my/tasks--render-buffer (buffer-name)
                                my/tasks-view-query
                                my/tasks-view-query-arg)))
+    ;; Refreshing the inbox view should credit the streak too, so hitting
+    ;; `g' after clearing the last item counts immediately (mirrors
+    ;; `my/tasks-show-inbox').
+    (when (string= (buffer-name) "*Inbox*")
+      (my/tasks--streak-touch))
     (goto-char (min pt (point-max)))))
 
 (defun my/tasks--file-at-point ()

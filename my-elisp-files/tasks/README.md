@@ -156,7 +156,9 @@ Mechanik:
   Freitag-Inbox-Zero verbindet sich nahtlos mit Montag.
 - Der Zähler läuft nächtlich via launchd (`streak.py`) **und** wird
   live in Emacs aktualisiert, sobald du Inbox-Zero erreichst — der
-  Moment zählt also sofort, nicht erst um 23:55.
+  Moment zählt also sofort, nicht erst um 23:55. Live gutgeschrieben
+  wird beim Öffnen der Inbox-View (`C-c t i` / `i`) sowie beim
+  Refresh der Inbox-View mit `g`.
 - **Urlaub überbrücken:** Nach einer längeren Abwesenheit einmal `b`
   (bzw. `C-c t b`, `my/tasks-streak-bridge`) drücken. Die Streak wird
   neu verankert, als hätte es keine Lücke gegeben — Urlaubstage zählen
