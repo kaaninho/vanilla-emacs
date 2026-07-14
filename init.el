@@ -1526,7 +1526,9 @@
                 mode-line mode-line-inactive
                 tab-bar tab-bar-tab tab-bar-tab-inactive
                 line-number line-number-current-line))
-  (set-face-attribute face nil :family "Hack"))
+  ;; Hack hatte ich ne lange Zeit davor
+  ;; (set-face-attribute face nil :family "Hack")
+  (set-face-attribute face nil :family "Rec Mono Casual"))
 
 ;;; line numbers
 (global-display-line-numbers-mode)
