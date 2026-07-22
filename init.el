@@ -523,6 +523,8 @@
   (save-buffer)
   (obsidian-capture-mode))
 
+(load-file "~/repos/obsidian.el/obsidian.el")
+
 ;;; Obsidian-Integration
 (use-package obsidian
   :init
