@@ -160,6 +160,16 @@
                           (:from-or-to . 25)
                           (:subject . nil)))
 
+  ;; Kontakt-Namen in der Vervollständigung überschreiben.
+  ;; mu speichert für Mailinglisten oft den Namen des letzten Absenders
+  ;; statt den der Liste. Hier korrigieren wir das für einzelne Adressen.
+  (setq mu4e-contact-process-function
+        (lambda (contact)
+          (cond
+           ((string-match-p "ai-lit@listserv\\.dfn\\.de" contact)
+            "AI-LIT <ai-lit@listserv.dfn.de>")
+           (t contact))))
+
   ;; start mu4e
   (require 'mu4e)
   (mu4e t)
