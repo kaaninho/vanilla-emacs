@@ -522,10 +522,10 @@
   ;; backlinks panel, so it MUST be set via `setopt'/customize.
   (setopt obsidian-directory "/Users/kaan/Library/Mobile Documents/iCloud~md~obsidian/Documents/ObsidianOnIcloud"
           obsidian-daily-notes-directory "Daily"
-          obsidian-inbox-directory "⭐INBOX"
-          obsidian-templates-directory nil)
+          obsidian-inbox-directory "⭐INBOX")
   (setopt markdown-enable-wiki-links t)
   (setopt obsidian-backlinks-panel-width 40)
+  ;;  (setopt obsidian-backlinks-mode t)
   :config
   ;; Enable `obsidian-mode' in all vault files. Without this the backlinks
   ;; panel never populates, because `obsidian--populate-backlinks-buffer'
@@ -536,6 +536,7 @@
          ("C-c o f" . obsidian-jump)
          ("C-c o i" . obsidian-insert-wikilink)
          ("C-c o b" . obsidian-toggle-backlinks-panel)
+         ("C-c o s" . obsidian-search)
          ))
 
 ;; Tasks (GTD system) — must load AFTER `obsidian-directory' is set,
