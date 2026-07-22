@@ -64,6 +64,7 @@
   ;; Muss manuell installieren, klappt nicht via use-package, ebenso: mu4e-alert
   ;; Abhilfe: https://github.com/raxod502/straight.el/issues/491
   :ensure nil
+  :load-path "/opt/homebrew/Cellar/mu/1.14.2/share/emacs/site-lisp/mu/mu4e"
   :init
   ;; Delete key binding "C-x m" for more usage below
   (unbind-key "C-x m")
@@ -77,6 +78,7 @@
    ;; mu4e-sent-messages-behavior 'delete ;; Unsure how this should be configured
    mu4e-trash-folder "/ph/Gelöschte Elemente"
    mu4e-drafts-folder "/ph/Entwürfe"
+   mu4e-refile-folder "/ph/Archivieren"
    user-mail-address "kaan.sahin@ph-ludwigsburg.de"
    user-full-name "Kaan Sahin"
 
@@ -159,8 +161,6 @@
                           (:subject . nil)))
 
   ;; start mu4e
-  ;; Hab für den Mac mu installiert mit brew
-  (add-to-list 'load-path "/opt/homebrew/share/emacs/site-lisp/mu/mu4e")
   (require 'mu4e)
   (mu4e t)
 
